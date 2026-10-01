@@ -1,0 +1,22 @@
+{
+  "name": "text-diff",
+  "version": "0.0.0",
+  "private": true,
+  "description": "단일 HTML 텍스트 비교 도구",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test \"test/unit/*.test.mjs\"",
+    "fuzz": "node test/fuzz/fuzz.mjs",
+    "perf": "node test/perf/perf.mjs",
+    "build": "node scripts/build.mjs",
+    "e2e": "npm run build && npx playwright test",
+    "check-env": "node scripts/check-env.mjs",
+    "all": "npm run check-env && npm test && npm run fuzz && npm run perf && npm run e2e"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
+  }
+}
