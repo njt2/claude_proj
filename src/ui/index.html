@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Diff</title>
+<!--STYLES-->
+</head>
+<body data-screen="input">
+<header class="bar" role="toolbar" aria-label="도구 모음">
+  <h1 class="title">Diff</h1>
+  <div class="group">
+    <button type="button" id="compare" class="primary" title="비교 (Ctrl+Enter)">비교</button>
+    <button type="button" id="back" class="only-result" title="입력으로 돌아가기 (Esc)">← 입력</button>
+  </div>
+  <div class="group seg" role="group" aria-label="보기">
+    <button type="button" id="view-sbs" aria-pressed="true">나란히</button>
+    <button type="button" id="view-unified" aria-pressed="false">통합</button>
+  </div>
+  <div class="group opts" role="group" aria-label="비교 옵션">
+    <label><input type="checkbox" id="opt-ws"> 공백 무시</label>
+    <label><input type="checkbox" id="opt-case"> 대소문자 무시</label>
+    <label><input type="checkbox" id="opt-blank"> 빈 줄 무시</label>
+    <label>컨텍스트
+      <select id="opt-context" aria-label="컨텍스트 줄 수">
+        <option value="0">0</option>
+        <option value="3" selected>3</option>
+        <option value="5">5</option>
+        <option value="10">10</option>
+        <option value="all">전체</option>
+      </select>
+    </label>
+  </div>
+  <div class="group nav only-result" role="group" aria-label="변경 이동">
+    <button type="button" id="nav-prev" aria-label="이전 변경 (p)" title="이전 변경 (p / k)">▲</button>
+    <span id="nav-pos" class="nav-pos" aria-live="polite">0 / 0</span>
+    <button type="button" id="nav-next" aria-label="다음 변경 (n)" title="다음 변경 (n / j)">▼</button>
+  </div>
+  <div class="group end">
+    <button type="button" id="patch-open">patch</button>
+    <label class="theme">테마
+      <select id="theme" aria-label="테마">
+        <option value="system">시스템</option>
+        <option value="light">라이트</option>
+        <option value="dark">다크</option>
+      </select>
+    </label>
+    <button type="button" id="help-open" aria-label="도움말" title="도움말">?</button>
+  </div>
+</header>
+
+<main>
+  <section id="input-screen" class="screen" aria-label="입력">
+    <div class="panes">
+      <div class="pane" data-side="old">
+        <div class="pane-head">
+          <span class="pane-name" id="old-name">원본</span>
+          <span class="badges" id="old-badges"></span>
+          <span class="pane-actions">
+            <button type="button" class="small" data-action="open" data-side="old">파일 열기</button>
+            <button type="button" class="small" data-action="clear" data-side="old">지우기</button>
+          </span>
+          <input type="file" id="old-file" hidden>
+        </div>
+        <div class="pane-msg" id="old-msg" role="status"></div>
+        <textarea id="old-text" wrap="off" spellcheck="false" autocomplete="off" autocapitalize="off"
+          aria-label="원본 텍스트" placeholder="원본 텍스트를 붙여넣거나 파일을 끌어다 놓으세요"></textarea>
+      </div>
+      <div class="swap-wrap">
+        <button type="button" id="swap" class="small" aria-label="좌우 바꾸기" title="좌우 바꾸기">⇄</button>
+      </div>
+      <div class="pane" data-side="new">
+        <div class="pane-head">
+          <span class="pane-name" id="new-name">변경본</span>
+          <span class="badges" id="new-badges"></span>
+          <span class="pane-actions">
+            <button type="button" class="small" data-action="open" data-side="new">파일 열기</button>
+            <button type="button" class="small" data-action="clear" data-side="new">지우기</button>
+          </span>
+          <input type="file" id="new-file" hidden>
+        </div>
+        <div class="pane-msg" id="new-msg" role="status"></div>
+        <textarea id="new-text" wrap="off" spellcheck="false" autocomplete="off" autocapitalize="off"
+          aria-label="변경본 텍스트" placeholder="변경본 텍스트를 붙여넣거나 파일을 끌어다 놓으세요"></textarea>
+      </div>
+    </div>
+    <p class="hint">Ctrl+Enter로 비교 · 파일 두 개를 한 번에 끌어다 놓으면 왼쪽·오른쪽에 차례로 들어갑니다</p>
+  </section>
+
+  <section id="result-screen" class="screen" aria-label="결과" hidden>
+    <div class="summary">
+      <span id="summary-text" class="summary-text"></span>
+      <span id="summary-badges" class="badges"></span>
+      <span class="spacer"></span>
+      <button type="button" id="fold-toggle" class="small">모두 펼치기</button>
+    </div>
+    <div id="status" class="status" hidden></div>
+    <div id="diff" class="diff" aria-label="비교 결과"></div>
+  </section>
+</main>
+
+<div id="modal-root"></div>
+
+<dialog id="patch-dialog" aria-labelledby="patch-title">
+  <div class="dlg-head">
+    <h2 id="patch-title">unified patch</h2>
+    <button type="button" class="small" data-close aria-label="닫기">닫기</button>
+  </div>
+  <p id="patch-note" class="note" hidden></p>
+  <p id="patch-empty" class="note" hidden>내보낼 차이가 없습니다</p>
+  <textarea id="patch-text" readonly wrap="off" spellcheck="false" aria-label="patch 텍스트"></textarea>
+  <div class="dlg-actions">
+    <span id="patch-msg" class="msg" role="status"></span>
+    <button type="button" id="patch-copy">복사</button>
+    <button type="button" id="patch-download" class="primary">다운로드</button>
+  </div>
+</dialog>
+
+<dialog id="help-dialog" aria-labelledby="help-title">
+  <div class="dlg-head">
+    <h2 id="help-title">도움말</h2>
+    <button type="button" class="small" data-close aria-label="닫기">닫기</button>
+  </div>
+  <div class="help-body">
+    <h3>단축키</h3>
+    <table>
+      <tr><th><kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Enter</kbd></th><td>비교</td></tr>
+      <tr><th><kbd>Esc</kbd></th><td>결과에서 입력으로 돌아가기 · 창 닫기</td></tr>
+      <tr><th><kbd>n</kbd> / <kbd>j</kbd></th><td>다음 변경</td></tr>
+      <tr><th><kbd>p</kbd> / <kbd>k</kbd></th><td>이전 변경</td></tr>
+    </table>
+    <p><kbd>n</kbd>/<kbd>p</kbd>/<kbd>j</kbd>/<kbd>k</kbd>는 입력 칸에 포커스가 없을 때만 동작합니다. 상단 바의 ▲/▼ 버튼도 같습니다.</p>
+    <h3>옵션</h3>
+    <dl>
+      <dt>공백 무시</dt><dd>모든 공백 문자(탭, 줄 끝 CR 포함)를 지우고 비교합니다(GNU <code>-w</code> 상당). 화면에는 원문이 보입니다.</dd>
+      <dt>대소문자 무시</dt><dd>소문자로 바꿔 비교합니다(GNU <code>-i</code> 상당).</dd>
+      <dt>빈 줄 무시</dt><dd>추가·삭제된 줄이 전부 빈 줄인 변경은 "무시됨"으로 흐리게 표시하고 통계·이동·접기에서 뺍니다. 공백 무시가 켜져 있으면 공백만 있는 줄도 빈 줄로 봅니다.</dd>
+      <dt>컨텍스트</dt><dd>변경 앞뒤로 보여 줄 줄 수입니다. patch의 컨텍스트 줄 수도 같습니다.</dd>
+    </dl>
+    <h3>patch</h3>
+    <p>GNU <code>diff -u</code> 형식입니다. 무시 옵션이 켜져 있으면 컨텍스트 줄은 왼쪽 원문으로 쓰이고, 무시된 차이는 patch에 반영되지 않습니다. 무시된 빈 줄 변경이 다른 변경과 가까이(컨텍스트 2배 이내) 있으면 같은 hunk 안에 <code>+</code>/<code>-</code>로 함께 나옵니다.</p>
+    <h3>알아둘 점</h3>
+    <ul>
+      <li>줄은 <code>\n</code>으로만 나눕니다. 옵션 없이 CRLF 파일과 LF 파일을 비교하면 모든 줄이 다르게 나옵니다(공백 무시를 켜면 같아집니다). 변경된 줄에서는 <code>\r</code>이 <code>␍</code>로 보입니다.</li>
+      <li>파일 끝 개행 유무가 다르면 마지막 줄은 항상 다른 줄로 봅니다(GNU diff와 같음).</li>
+      <li>서로 많이 다른 큰 입력은 계산 시간을 제한하려고 최소 diff가 아닐 수 있습니다(결과는 여전히 정확). 이때 결과 위에 배지가 표시됩니다. 약 2만 줄 이하는 항상 최소 diff입니다.</li>
+      <li>파일은 UTF-8로만 읽고 BOM은 그대로 비교합니다. 앞 8KB에 NUL 바이트가 있는 파일은 바이너리로 보고 비교하지 않습니다.</li>
+      <li>브라우저 입력 칸은 붙여넣은 텍스트의 <code>\r</code>을 지웁니다. CRLF를 그대로 비교하려면 파일 열기나 끌어다 놓기를 쓰세요.</li>
+      <li>모든 처리는 이 페이지 안에서만 이루어지며 아무것도 전송하거나 저장하지 않습니다.</li>
+    </ul>
+  </div>
+</dialog>
+
+<!--CORE-->
+<!--APP-->
+</body>
+</html>

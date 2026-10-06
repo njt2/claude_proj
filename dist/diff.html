@@ -1,0 +1,2220 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Diff</title>
+<style>
+/* 색은 :root 토큰으로만 정의한다. 다크: prefers-color-scheme + [data-theme="dark"], 라이트 강제: [data-theme="light"] */
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f6f8fa;
+  --bg-bar: #f6f8fa;
+  --fg: #1f2328;
+  --fg-muted: #59636e;
+  --border: #d1d9e0;
+  --accent: #0969da;
+  --accent-fg: #ffffff;
+  --focus: #0969da;
+
+  --del-bg: #ffebe9;
+  --del-hl: #ffc1bd;
+  --del-sign: #a40e26;
+  --del-ln: #fbd8d5;
+  --add-bg: #dafbe1;
+  --add-hl: #aceebb;
+  --add-sign: #116329;
+  --add-ln: #c8f0d1;
+  --empty-bg: #f0f2f4;
+  --fold-bg: #ddf4ff;
+  --fold-fg: #0a3069;
+  --ign-fg: #59636e;
+  --warn-bg: #fff8c5;
+  --warn-fg: #6c4400;
+  --ok-bg: #dafbe1;
+  --ok-fg: #116329;
+  --err-fg: #a40e26;
+  --current: #bf8700;
+  --shadow: rgba(31, 35, 40, 0.15);
+
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "D2Coding", "Liberation Mono", monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", Roboto, sans-serif;
+  --line-h: 20px;
+  --ln-w: 4ch;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1117;
+    --bg-soft: #151b23;
+    --bg-bar: #151b23;
+    --fg: #e6edf3;
+    --fg-muted: #9198a1;
+    --border: #3d444d;
+    --accent: #2f81f7;
+    --accent-fg: #ffffff;
+    --focus: #58a6ff;
+
+    --del-bg: #3c1618;
+    --del-hl: #7d2a2f;
+    --del-sign: #ff9492;
+    --del-ln: #4d1d20;
+    --add-bg: #12261e;
+    --add-hl: #1b5e3a;
+    --add-sign: #7ee2a8;
+    --add-ln: #173527;
+    --empty-bg: #161b22;
+    --fold-bg: #0c2d6b;
+    --fold-fg: #cae8ff;
+    --ign-fg: #9198a1;
+    --warn-bg: #3b2e00;
+    --warn-fg: #f2cc60;
+    --ok-bg: #12261e;
+    --ok-fg: #7ee2a8;
+    --err-fg: #ff9492;
+    --current: #e3b341;
+    --shadow: rgba(1, 4, 9, 0.6);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0d1117;
+  --bg-soft: #151b23;
+  --bg-bar: #151b23;
+  --fg: #e6edf3;
+  --fg-muted: #9198a1;
+  --border: #3d444d;
+  --accent: #2f81f7;
+  --accent-fg: #ffffff;
+  --focus: #58a6ff;
+
+  --del-bg: #3c1618;
+  --del-hl: #7d2a2f;
+  --del-sign: #ff9492;
+  --del-ln: #4d1d20;
+  --add-bg: #12261e;
+  --add-hl: #1b5e3a;
+  --add-sign: #7ee2a8;
+  --add-ln: #173527;
+  --empty-bg: #161b22;
+  --fold-bg: #0c2d6b;
+  --fold-fg: #cae8ff;
+  --ign-fg: #9198a1;
+  --warn-bg: #3b2e00;
+  --warn-fg: #f2cc60;
+  --ok-bg: #12261e;
+  --ok-fg: #7ee2a8;
+  --err-fg: #ff9492;
+  --current: #e3b341;
+  --shadow: rgba(1, 4, 9, 0.6);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 14px/1.45 var(--sans);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+[hidden] { display: none !important; }
+
+button, select, input, textarea { font: inherit; color: inherit; }
+button {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 12px;
+  cursor: pointer;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+button:hover { background: var(--bg-soft); }
+button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+button.primary:hover { filter: brightness(1.08); }
+button.small { padding: 3px 8px; font-size: 13px; }
+button:disabled { opacity: 0.5; cursor: default; }
+select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 4px;
+}
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+kbd {
+  font: 12px var(--mono);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0 4px;
+  background: var(--bg-soft);
+}
+
+/* ── 상단 바 ── */
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 8px 16px;
+  background: var(--bg-bar);
+  border-bottom: 1px solid var(--border);
+}
+.title { font-size: 18px; margin: 0; font-weight: 650; letter-spacing: -0.01em; }
+.group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.group.end { margin-left: auto; }
+.seg { gap: 0; }
+.seg button { border-radius: 0; }
+.seg button:first-child { border-radius: 6px 0 0 6px; }
+.seg button:last-child { border-radius: 0 6px 6px 0; border-left: 0; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.opts { gap: 4px 12px; }
+.opts label, .theme { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; cursor: pointer; }
+.nav-pos { min-width: 5.5ch; text-align: center; font-variant-numeric: tabular-nums; }
+body[data-screen="input"] .only-result { display: none; }
+
+/* ── 입력 화면 ── */
+.screen { padding: 12px 16px 24px; }
+.panes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 8px;
+  height: calc(100vh - 140px);
+  min-height: 320px;
+}
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  overflow: hidden;
+}
+.pane.drop { outline: 3px dashed var(--accent); outline-offset: -3px; background: var(--bg-soft); }
+.pane-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-soft);
+}
+.pane-name { font-weight: 600; overflow-wrap: anywhere; }
+.pane-actions { margin-left: auto; display: flex; gap: 4px; }
+.pane-msg:empty { display: none; }
+.pane-msg { padding: 6px 8px; color: var(--err-fg); border-bottom: 1px solid var(--border); }
+.pane textarea {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  resize: none;
+  padding: 8px;
+  font: 13px/var(--line-h) var(--mono);
+  tab-size: 4;
+  background: var(--bg);
+  white-space: pre;
+  overflow: auto;
+}
+.pane textarea:focus-visible { outline-offset: -2px; }
+.swap-wrap { display: flex; align-items: center; }
+.hint { color: var(--fg-muted); font-size: 13px; margin: 8px 0 0; }
+
+.badges { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.badge {
+  font-size: 12px;
+  line-height: 18px;
+  padding: 0 6px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+  background: var(--bg);
+  white-space: nowrap;
+}
+.badge.warn { background: var(--warn-bg); color: var(--warn-fg); border-color: transparent; }
+.badge.ok { background: var(--ok-bg); color: var(--ok-fg); border-color: transparent; }
+
+/* ── 결과 화면 ── */
+#result-screen { padding-top: 8px; }
+.summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-bottom: 8px;
+}
+.summary-text { font-weight: 600; font-variant-numeric: tabular-nums; }
+.summary-text .plus { color: var(--add-sign); }
+.summary-text .minus { color: var(--del-sign); }
+.spacer { flex: 1; }
+.status { padding: 24px 8px; text-align: center; color: var(--fg-muted); }
+.status.error { color: var(--err-fg); }
+.status button { margin-left: 8px; }
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  vertical-align: -2px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.diff {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  font: 13px/var(--line-h) var(--mono);
+  tab-size: 4;
+}
+.diff:empty { display: none; }
+.diff-head {
+  display: grid;
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--border);
+  font: 600 13px/1.4 var(--sans);
+}
+.diff-head > div { padding: 6px 8px; overflow-wrap: anywhere; min-width: 0; }
+.chunk { content-visibility: auto; }
+
+.row { display: grid; min-width: 0; }
+.sbs .row, .sbs .diff-head { grid-template-columns: var(--ln-w) minmax(0, 1fr) var(--ln-w) minmax(0, 1fr); }
+.sbs .diff-head > div:nth-child(1) { grid-column: 1 / 3; }
+.sbs .diff-head > div:nth-child(2) { grid-column: 3 / 5; border-left: 1px solid var(--border); }
+.uni .row { grid-template-columns: var(--ln-w) var(--ln-w) minmax(0, 1fr); }
+.uni .diff-head { grid-template-columns: 1fr; white-space: pre-wrap; }
+.diff-head .minus { color: var(--del-sign); }
+.diff-head .plus { color: var(--add-sign); }
+
+.ln, .code { min-height: var(--line-h); }
+.ln {
+  color: var(--fg-muted);
+  text-align: right;
+  padding: 0 8px 0 4px;
+  user-select: none;
+  font-variant-numeric: tabular-nums;
+}
+.code {
+  padding: 0 8px 0 18px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  min-width: 0;
+  position: relative;
+}
+.code::before {
+  position: absolute;
+  left: 5px;
+  user-select: none;
+}
+.sbs .ln.new { border-left: 1px solid var(--border); }
+
+.code.del { background: var(--del-bg); }
+.code.del::before { content: "−"; color: var(--del-sign); }
+.ln.del { background: var(--del-ln); }
+.code.add { background: var(--add-bg); }
+.code.add::before { content: "+"; color: var(--add-sign); }
+.ln.add { background: var(--add-ln); }
+.code.empty, .ln.empty { background: var(--empty-bg); }
+.hl-del { background: var(--del-hl); border-radius: 2px; }
+.hl-add { background: var(--add-hl); border-radius: 2px; }
+.cr { color: var(--fg-muted); font-size: 0.85em; }
+.noeol {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 4px;
+  font: 11px/16px var(--sans);
+  color: var(--fg-muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  vertical-align: 1px;
+  user-select: none;
+}
+
+.row.ign .code, .row.ign .ln { background: var(--empty-bg); color: var(--ign-fg); }
+.row.ign .code::before { color: var(--ign-fg); }
+.ign-tag {
+  display: inline-block;
+  margin-left: 6px;
+  font: 11px/16px var(--sans);
+  color: var(--ign-fg);
+  user-select: none;
+}
+
+.fold {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--fold-bg);
+  color: var(--fold-fg);
+  font: 13px/var(--line-h) var(--sans);
+  padding: 2px 8px;
+  text-align: center;
+}
+.fold:hover { background: var(--fold-bg); filter: brightness(0.97); text-decoration: underline; }
+
+/* 현재 변경 블록: 셀 배경 위에 그려지도록 의사 요소로 테두리 */
+.row.current { position: relative; }
+.row.current::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-left: 3px solid var(--current);
+  border-right: 3px solid var(--current);
+}
+.row.current-first::after { border-top: 2px solid var(--current); }
+.row.current-last::after { border-bottom: 2px solid var(--current); }
+
+.empty-note { padding: 16px; color: var(--fg-muted); text-align: center; font-family: var(--sans); }
+
+/* ── 대화상자 ── */
+dialog {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--fg);
+  padding: 0;
+  width: min(920px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  box-shadow: 0 12px 32px var(--shadow);
+}
+dialog[open] { display: flex; flex-direction: column; }
+dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
+.dlg-head { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.dlg-head h2 { font-size: 16px; margin: 0; flex: 1; }
+.note { margin: 10px 14px 0; padding: 6px 10px; border-radius: 6px; background: var(--warn-bg); color: var(--warn-fg); font-size: 13px; }
+#patch-text {
+  margin: 10px 14px;
+  min-height: 240px;
+  height: 55vh;
+  resize: vertical;
+  font: 12.5px/1.5 var(--mono);
+  tab-size: 4;
+  white-space: pre;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  background: var(--bg-soft);
+}
+.dlg-actions { display: flex; align-items: center; gap: 8px; padding: 0 14px 12px; justify-content: flex-end; }
+.dlg-actions .msg { margin-right: auto; color: var(--fg-muted); font-size: 13px; }
+.help-body { padding: 4px 18px 16px; overflow: auto; }
+.help-body h3 { font-size: 14px; margin: 14px 0 6px; }
+.help-body table { border-collapse: collapse; }
+.help-body th { text-align: left; font-weight: normal; padding: 3px 16px 3px 0; white-space: nowrap; }
+.help-body dt { font-weight: 600; margin-top: 6px; }
+.help-body dd { margin: 2px 0 0 0; color: var(--fg-muted); }
+.help-body p, .help-body li { color: var(--fg-muted); }
+.help-body code { font-family: var(--mono); }
+
+/* 페이지 안 확인 상자 (window.confirm 대신) */
+.confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.confirm-box {
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 12px 32px var(--shadow);
+}
+.confirm-box p { margin: 0 0 14px; }
+.confirm-box .actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ── 좁은 화면 ── */
+@media (max-width: 767px) {
+  .bar { position: static; gap: 6px 10px; padding: 8px 12px; }
+  .group.end { margin-left: 0; }
+  .screen { padding: 10px 12px 20px; }
+  .panes {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+  }
+  .pane textarea { height: 34vh; min-height: 160px; }
+  .swap-wrap { justify-content: center; }
+  .swap-wrap button { transform: rotate(90deg); }
+  .code { padding-left: 16px; }
+  .ln { padding: 0 4px 0 2px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+</style>
+</head>
+<body data-screen="input">
+<header class="bar" role="toolbar" aria-label="도구 모음">
+  <h1 class="title">Diff</h1>
+  <div class="group">
+    <button type="button" id="compare" class="primary" title="비교 (Ctrl+Enter)">비교</button>
+    <button type="button" id="back" class="only-result" title="입력으로 돌아가기 (Esc)">← 입력</button>
+  </div>
+  <div class="group seg" role="group" aria-label="보기">
+    <button type="button" id="view-sbs" aria-pressed="true">나란히</button>
+    <button type="button" id="view-unified" aria-pressed="false">통합</button>
+  </div>
+  <div class="group opts" role="group" aria-label="비교 옵션">
+    <label><input type="checkbox" id="opt-ws"> 공백 무시</label>
+    <label><input type="checkbox" id="opt-case"> 대소문자 무시</label>
+    <label><input type="checkbox" id="opt-blank"> 빈 줄 무시</label>
+    <label>컨텍스트
+      <select id="opt-context" aria-label="컨텍스트 줄 수">
+        <option value="0">0</option>
+        <option value="3" selected>3</option>
+        <option value="5">5</option>
+        <option value="10">10</option>
+        <option value="all">전체</option>
+      </select>
+    </label>
+  </div>
+  <div class="group nav only-result" role="group" aria-label="변경 이동">
+    <button type="button" id="nav-prev" aria-label="이전 변경 (p)" title="이전 변경 (p / k)">▲</button>
+    <span id="nav-pos" class="nav-pos" aria-live="polite">0 / 0</span>
+    <button type="button" id="nav-next" aria-label="다음 변경 (n)" title="다음 변경 (n / j)">▼</button>
+  </div>
+  <div class="group end">
+    <button type="button" id="patch-open">patch</button>
+    <label class="theme">테마
+      <select id="theme" aria-label="테마">
+        <option value="system">시스템</option>
+        <option value="light">라이트</option>
+        <option value="dark">다크</option>
+      </select>
+    </label>
+    <button type="button" id="help-open" aria-label="도움말" title="도움말">?</button>
+  </div>
+</header>
+
+<main>
+  <section id="input-screen" class="screen" aria-label="입력">
+    <div class="panes">
+      <div class="pane" data-side="old">
+        <div class="pane-head">
+          <span class="pane-name" id="old-name">원본</span>
+          <span class="badges" id="old-badges"></span>
+          <span class="pane-actions">
+            <button type="button" class="small" data-action="open" data-side="old">파일 열기</button>
+            <button type="button" class="small" data-action="clear" data-side="old">지우기</button>
+          </span>
+          <input type="file" id="old-file" hidden>
+        </div>
+        <div class="pane-msg" id="old-msg" role="status"></div>
+        <textarea id="old-text" wrap="off" spellcheck="false" autocomplete="off" autocapitalize="off"
+          aria-label="원본 텍스트" placeholder="원본 텍스트를 붙여넣거나 파일을 끌어다 놓으세요"></textarea>
+      </div>
+      <div class="swap-wrap">
+        <button type="button" id="swap" class="small" aria-label="좌우 바꾸기" title="좌우 바꾸기">⇄</button>
+      </div>
+      <div class="pane" data-side="new">
+        <div class="pane-head">
+          <span class="pane-name" id="new-name">변경본</span>
+          <span class="badges" id="new-badges"></span>
+          <span class="pane-actions">
+            <button type="button" class="small" data-action="open" data-side="new">파일 열기</button>
+            <button type="button" class="small" data-action="clear" data-side="new">지우기</button>
+          </span>
+          <input type="file" id="new-file" hidden>
+        </div>
+        <div class="pane-msg" id="new-msg" role="status"></div>
+        <textarea id="new-text" wrap="off" spellcheck="false" autocomplete="off" autocapitalize="off"
+          aria-label="변경본 텍스트" placeholder="변경본 텍스트를 붙여넣거나 파일을 끌어다 놓으세요"></textarea>
+      </div>
+    </div>
+    <p class="hint">Ctrl+Enter로 비교 · 파일 두 개를 한 번에 끌어다 놓으면 왼쪽·오른쪽에 차례로 들어갑니다</p>
+  </section>
+
+  <section id="result-screen" class="screen" aria-label="결과" hidden>
+    <div class="summary">
+      <span id="summary-text" class="summary-text"></span>
+      <span id="summary-badges" class="badges"></span>
+      <span class="spacer"></span>
+      <button type="button" id="fold-toggle" class="small">모두 펼치기</button>
+    </div>
+    <div id="status" class="status" hidden></div>
+    <div id="diff" class="diff" aria-label="비교 결과"></div>
+  </section>
+</main>
+
+<div id="modal-root"></div>
+
+<dialog id="patch-dialog" aria-labelledby="patch-title">
+  <div class="dlg-head">
+    <h2 id="patch-title">unified patch</h2>
+    <button type="button" class="small" data-close aria-label="닫기">닫기</button>
+  </div>
+  <p id="patch-note" class="note" hidden></p>
+  <p id="patch-empty" class="note" hidden>내보낼 차이가 없습니다</p>
+  <textarea id="patch-text" readonly wrap="off" spellcheck="false" aria-label="patch 텍스트"></textarea>
+  <div class="dlg-actions">
+    <span id="patch-msg" class="msg" role="status"></span>
+    <button type="button" id="patch-copy">복사</button>
+    <button type="button" id="patch-download" class="primary">다운로드</button>
+  </div>
+</dialog>
+
+<dialog id="help-dialog" aria-labelledby="help-title">
+  <div class="dlg-head">
+    <h2 id="help-title">도움말</h2>
+    <button type="button" class="small" data-close aria-label="닫기">닫기</button>
+  </div>
+  <div class="help-body">
+    <h3>단축키</h3>
+    <table>
+      <tr><th><kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Enter</kbd></th><td>비교</td></tr>
+      <tr><th><kbd>Esc</kbd></th><td>결과에서 입력으로 돌아가기 · 창 닫기</td></tr>
+      <tr><th><kbd>n</kbd> / <kbd>j</kbd></th><td>다음 변경</td></tr>
+      <tr><th><kbd>p</kbd> / <kbd>k</kbd></th><td>이전 변경</td></tr>
+    </table>
+    <p><kbd>n</kbd>/<kbd>p</kbd>/<kbd>j</kbd>/<kbd>k</kbd>는 입력 칸에 포커스가 없을 때만 동작합니다. 상단 바의 ▲/▼ 버튼도 같습니다.</p>
+    <h3>옵션</h3>
+    <dl>
+      <dt>공백 무시</dt><dd>모든 공백 문자(탭, 줄 끝 CR 포함)를 지우고 비교합니다(GNU <code>-w</code> 상당). 화면에는 원문이 보입니다.</dd>
+      <dt>대소문자 무시</dt><dd>소문자로 바꿔 비교합니다(GNU <code>-i</code> 상당).</dd>
+      <dt>빈 줄 무시</dt><dd>추가·삭제된 줄이 전부 빈 줄인 변경은 "무시됨"으로 흐리게 표시하고 통계·이동·접기에서 뺍니다. 공백 무시가 켜져 있으면 공백만 있는 줄도 빈 줄로 봅니다.</dd>
+      <dt>컨텍스트</dt><dd>변경 앞뒤로 보여 줄 줄 수입니다. patch의 컨텍스트 줄 수도 같습니다.</dd>
+    </dl>
+    <h3>patch</h3>
+    <p>GNU <code>diff -u</code> 형식입니다. 무시 옵션이 켜져 있으면 컨텍스트 줄은 왼쪽 원문으로 쓰이고, 무시된 차이는 patch에 반영되지 않습니다. 무시된 빈 줄 변경이 다른 변경과 가까이(컨텍스트 2배 이내) 있으면 같은 hunk 안에 <code>+</code>/<code>-</code>로 함께 나옵니다.</p>
+    <h3>알아둘 점</h3>
+    <ul>
+      <li>줄은 <code>\n</code>으로만 나눕니다. 옵션 없이 CRLF 파일과 LF 파일을 비교하면 모든 줄이 다르게 나옵니다(공백 무시를 켜면 같아집니다). 변경된 줄에서는 <code>\r</code>이 <code>␍</code>로 보입니다.</li>
+      <li>파일 끝 개행 유무가 다르면 마지막 줄은 항상 다른 줄로 봅니다(GNU diff와 같음).</li>
+      <li>서로 많이 다른 큰 입력은 계산 시간을 제한하려고 최소 diff가 아닐 수 있습니다(결과는 여전히 정확). 이때 결과 위에 배지가 표시됩니다. 약 2만 줄 이하는 항상 최소 diff입니다.</li>
+      <li>파일은 UTF-8로만 읽고 BOM은 그대로 비교합니다. 앞 8KB에 NUL 바이트가 있는 파일은 바이너리로 보고 비교하지 않습니다.</li>
+      <li>브라우저 입력 칸은 붙여넣은 텍스트의 <code>\r</code>을 지웁니다. CRLF를 그대로 비교하려면 파일 열기나 끌어다 놓기를 쓰세요.</li>
+      <li>모든 처리는 이 페이지 안에서만 이루어지며 아무것도 전송하거나 저장하지 않습니다.</li>
+    </ul>
+  </div>
+</dialog>
+
+<script id="diff-core">/*
+ * diff-core.js — 텍스트 diff 엔진.
+ *
+ * DOM·브라우저 API를 쓰지 않는다. 브라우저 메인 스레드, Web Worker, Node(vm) 세 환경에서
+ * 같은 소스가 그대로 돌아간다. export 구문 없이 globalThis.DiffCore 에 할당한다.
+ * 빌드 시 <script id="diff-core">로 인라인되고, Worker에는 그 textContent가 주입된다.
+ */
+(function (global) {
+  'use strict';
+
+  var VERSION = '1.0.0';
+
+  // ───────────────────────────── 줄 분리 (D1, D2) ─────────────────────────────
+
+  // '\n'으로만 자른다. '\r'은 줄 내용에 남는다.
+  // 끝이 '\n'이면 eol=true이고 마지막 빈 조각은 줄로 치지 않는다.
+  function splitLines(text) {
+    if (text === '') return { lines: [], eol: false };
+    var eol = text.charCodeAt(text.length - 1) === 10;
+    var body = eol ? text.slice(0, -1) : text;
+    return { lines: body.split('\n'), eol: eol };
+  }
+
+  // ───────────────────────────── 비교 키 (D3, D4, D5) ─────────────────────────────
+
+  var WS_RE = /\s+/g;
+
+  function makeNormalizer(opts) {
+    var ws = !!opts.ignoreWhitespace;
+    var ic = !!opts.ignoreCase;
+    if (ws && ic) return function (s) { return s.replace(WS_RE, '').toLowerCase(); };
+    if (ws) return function (s) { return s.replace(WS_RE, ''); };
+    if (ic) return function (s) { return s.toLowerCase(); };
+    return null;
+  }
+
+  // 각 줄에 정수 ID를 부여한다. 양쪽이 같은 Map을 공유하므로 ID가 같으면 비교 키가 같다.
+  // D3: 개행 없이 끝나는 마지막 줄은 개행 있는 어떤 줄과도 다른 줄이다. 키에 표식 문자열을
+  // 붙이면 그 표식을 내용으로 가진 줄과 충돌할 수 있으므로, 대신 별도 ID를 준다.
+  // 양쪽 마지막 줄이 모두 개행 없고 키가 같을 때만 같은 ID를 공유한다.
+  function buildIds(oldLines, oldEol, newLines, newEol, opts) {
+    var norm = makeNormalizer(opts);
+    var map = new Map();
+    var next = 0;
+    var N = oldLines.length, M = newLines.length;
+    var a = new Int32Array(N), b = new Int32Array(M);
+    var oldNoEol = !oldEol && N > 0, newNoEol = !newEol && M > 0;
+    var nA = oldNoEol ? N - 1 : N, nB = newNoEol ? M - 1 : M;
+    var i, key, id;
+    for (i = 0; i < nA; i++) {
+      key = norm ? norm(oldLines[i]) : oldLines[i];
+      id = map.get(key);
+      if (id === undefined) { id = next++; map.set(key, id); }
+      a[i] = id;
+    }
+    for (i = 0; i < nB; i++) {
+      key = norm ? norm(newLines[i]) : newLines[i];
+      id = map.get(key);
+      if (id === undefined) { id = next++; map.set(key, id); }
+      b[i] = id;
+    }
+    if (oldNoEol) a[N - 1] = next++;
+    if (newNoEol) {
+      if (oldNoEol) {
+        var ka = norm ? norm(oldLines[N - 1]) : oldLines[N - 1];
+        var kb = norm ? norm(newLines[M - 1]) : newLines[M - 1];
+        b[M - 1] = ka === kb ? a[N - 1] : next++;
+      } else {
+        b[M - 1] = next++;
+      }
+    }
+    return { a: a, b: b, idCount: next };
+  }
+
+  // ───────────────────────────── Myers O(ND), 선형 공간 (D7, D8) ─────────────────────────────
+
+  // 크기에 따른 기본 비용 상한 (근거·측정값은 PROGRESS.md Phase 4).
+  // 상한을 넘는 병적 입력의 비용은 (N+M) × budget에 비례한다 (P3 실측 ≈ 4.7ns × (N+M) × budget).
+  // 그래서 budget = WORK / (N+M)로 두어 최악 시간을 입력 크기와 무관하게 약 1초로 묶는다.
+  //  - N+M ≤ 약 2만 줄: budget이 maxD보다 커서 휴리스틱이 개입하지 않음 (항상 최소 diff)
+  //  - 10만 줄(P1·P3 규모): budget 2000 — P1 minimal(256 이상이면 충분), P3 약 1초 (목표 3초)
+  //  - 하한 256: 아주 큰 입력에서도 P1 같은 "조금 바뀐 대용량"은 최소 diff를 유지
+  var DEFAULT_BUDGET_MIN = 256;
+  var DEFAULT_BUDGET_WORK = 2e8;
+  function defaultBudget(totalLines) {
+    if (!(totalLines > 0)) return DEFAULT_BUDGET_WORK;
+    return Math.max(DEFAULT_BUDGET_MIN, Math.floor(DEFAULT_BUDGET_WORK / totalLines));
+  }
+
+  // 지역 상자 a[aLo..aHi) × b[bLo..bHi) 에서 middle snake를 찾아 out에 (x0,y0,x1,y1)을 쓴다.
+  // 좌표는 상자 기준(지역). 비용 상한을 넘어 휴리스틱 분할을 했으면 true를 반환한다.
+  function middleSnake(a, aLo, aHi, b, bLo, bHi, Vf, Vb, off, budget, out) {
+    var N = aHi - aLo, M = bHi - bLo;
+    var delta = N - M;
+    var odd = (delta & 1) !== 0;
+    var maxD = (N + M + 1) >> 1;
+    var d, k, c, x, y, x0, y0, x1, y1;
+    Vf[off + 1] = 0;
+    Vb[off + 1] = N + 1;
+    for (d = 0; d <= maxD; d++) {
+      // D8: 이번 단계가 상한을 넘으면, 직전 단계 정방향 끝점 중 상자 안에서 가장 멀리 간 점으로 자른다.
+      // 그 점까지의 비용은 d-1 이하이므로 앞쪽 하위 문제는 상한 안에서 정확히 풀린다.
+      if (d > budget) {
+        var best = -1, bx = 0, by = 0;
+        for (k = -(d - 1); k <= d - 1; k += 2) {
+          x = Vf[off + k];
+          y = x - k;
+          if (x >= 0 && x <= N && y >= 0 && y <= M &&
+              !(x === 0 && y === 0) && !(x === N && y === M) && x + y > best) {
+            best = x + y; bx = x; by = y;
+          }
+        }
+        if (best >= 0) {
+          out[0] = bx; out[1] = by; out[2] = bx; out[3] = by;
+          return true;
+        }
+      }
+      // 정방향: Vf[k] = 대각선 k(= x - y)에서 도달한 최대 x
+      for (k = -d; k <= d; k += 2) {
+        if (k === -d || (k !== d && Vf[off + k - 1] < Vf[off + k + 1])) x = Vf[off + k + 1];
+        else x = Vf[off + k - 1] + 1;
+        y = x - k;
+        x0 = x; y0 = y;
+        // 경계 조건 필수: 하위 문제에서 상자 밖 원소를 읽으면 잘못된 snake가 나온다 (부록 A-4)
+        while (x < N && y < M && a[aLo + x] === b[bLo + y]) { x++; y++; }
+        Vf[off + k] = x;
+        if (odd) {
+          c = k - delta;
+          if (c >= -(d - 1) && c <= d - 1 && x >= Vb[off + c]) {
+            out[0] = x0; out[1] = y0; out[2] = x; out[3] = y;
+            return false;
+          }
+        }
+      }
+      // 역방향: Vb[c] (c = k - delta) = 대각선 k에서 (N,M)으로부터 거꾸로 도달한 최소 x
+      for (c = -d; c <= d; c += 2) {
+        k = c + delta;
+        if (c === -d || (c !== d && Vb[off + c + 1] - 1 < Vb[off + c - 1])) x = Vb[off + c + 1] - 1;
+        else x = Vb[off + c - 1];
+        y = x - k;
+        x1 = x; y1 = y;
+        while (x > 0 && y > 0 && a[aLo + x - 1] === b[bLo + y - 1]) { x--; y--; }
+        Vb[off + c] = x;
+        if (!odd && k >= -d && k <= d && Vf[off + k] >= x) {
+          out[0] = x; out[1] = y; out[2] = x1; out[3] = y1;
+          return false;
+        }
+      }
+    }
+    throw new Error('DiffCore: middle snake를 찾지 못함 (N=' + N + ', M=' + M + ')');
+  }
+
+  // a, b(정수 ID 배열)의 최소 편집을 ca/cb(변경 표시)에 기록한다. 휴리스틱이 개입하면 false.
+  // 재귀 대신 명시적 스택을 쓴다: 휴리스틱 분할은 한쪽으로 치우쳐 깊이가 O(N)이 될 수 있다.
+  function myers(a, b, ca, cb, budget) {
+    var N = a.length, M = b.length;
+    if (N === 0 && M === 0) return true;
+    var maxD = (N + M + 1) >> 1;
+    var off = maxD + 1;
+    // 최상위에서 한 번 할당해 모든 하위 문제가 재사용한다 (하위 문제의 maxD는 항상 이보다 작다)
+    var Vf = new Int32Array(2 * maxD + 3);
+    var Vb = new Int32Array(2 * maxD + 3);
+    var snake = new Int32Array(4);
+    var minimal = true;
+    var stack = [0, N, 0, M];
+    var aLo, aHi, bLo, bHi, i, n, m, x0, y0, x1, y1;
+    while (stack.length) {
+      bHi = stack.pop(); bLo = stack.pop(); aHi = stack.pop(); aLo = stack.pop();
+      // 공통 prefix/suffix 제거 (equal로 확정)
+      while (aLo < aHi && bLo < bHi && a[aLo] === b[bLo]) { aLo++; bLo++; }
+      while (aLo < aHi && bLo < bHi && a[aHi - 1] === b[bHi - 1]) { aHi--; bHi--; }
+      if (aLo === aHi) { for (i = bLo; i < bHi; i++) cb[i] = 1; continue; }
+      if (bLo === bHi) { for (i = aLo; i < aHi; i++) ca[i] = 1; continue; }
+      if (middleSnake(a, aLo, aHi, b, bLo, bHi, Vf, Vb, off, budget, snake)) minimal = false;
+      x0 = snake[0]; y0 = snake[1]; x1 = snake[2]; y1 = snake[3];
+      n = aHi - aLo; m = bHi - bLo;
+      // 진전 보장: 분할점이 상자 안에서 순서대로 있고, 문제 전체를 그대로 돌려주지 않아야 한다
+      if (!(0 <= x0 && x0 <= x1 && x1 <= n && 0 <= y0 && y0 <= y1 && y1 <= m) ||
+          (x0 === 0 && y0 === 0 && x1 === n && y1 === m)) {
+        throw new Error('DiffCore: 잘못된 분할점 (' + [x0, y0, x1, y1] + ') / (' + n + ',' + m + ')');
+      }
+      // 뒤쪽 → 앞쪽 순으로 넣어 앞쪽을 먼저 처리
+      stack.push(aLo + x1, aHi, bLo + y1, bHi);
+      stack.push(aLo, aLo + x0, bLo, bLo + y0);
+    }
+    return minimal;
+  }
+
+  // 전처리 2 — 상대편에 없는 줄 제거 후 Myers 실행.
+  // 근거: 상대편에 없는 값은 어떤 공통 부분 수열에도 들어갈 수 없다. 그런 줄을 모두 변경으로
+  // 확정하고 나머지만으로 LCS를 구해도 LCS 길이는 같으므로 최소성이 유지된다. 축약 배열에서
+  // 변경되지 않은 원소들은 원래 배열에서도 같은 순서의 공통 부분 수열을 이룬다.
+  function computeChanges(a, b, idCount, budget) {
+    var N = a.length, M = b.length;
+    var ca = new Uint8Array(N), cb = new Uint8Array(M);
+    var inA = new Uint8Array(idCount), inB = new Uint8Array(idCount);
+    var i, ra, rb, aMap, bMap, nA = 0, nB = 0;
+    for (i = 0; i < N; i++) inA[a[i]] = 1;
+    for (i = 0; i < M; i++) inB[b[i]] = 1;
+    for (i = 0; i < N; i++) if (inB[a[i]]) nA++; else ca[i] = 1;
+    for (i = 0; i < M; i++) if (inA[b[i]]) nB++; else cb[i] = 1;
+
+    var minimal;
+    if (nA === N && nB === M) {
+      minimal = myers(a, b, ca, cb, budget);
+    } else {
+      ra = new Int32Array(nA); aMap = new Int32Array(nA);
+      rb = new Int32Array(nB); bMap = new Int32Array(nB);
+      var p = 0;
+      for (i = 0; i < N; i++) if (!ca[i]) { ra[p] = a[i]; aMap[p++] = i; }
+      p = 0;
+      for (i = 0; i < M; i++) if (!cb[i]) { rb[p] = b[i]; bMap[p++] = i; }
+      var rca = new Uint8Array(nA), rcb = new Uint8Array(nB);
+      minimal = myers(ra, rb, rca, rcb, budget);
+      for (i = 0; i < nA; i++) if (rca[i]) ca[aMap[i]] = 1;
+      for (i = 0; i < nB; i++) if (rcb[i]) cb[bMap[i]] = 1;
+    }
+    return { ca: ca, cb: cb, minimal: minimal };
+  }
+
+  // ───────────────────────────── 경계 이동 (GNU diff shift_boundaries 이식) ─────────────────────────────
+
+  // 같은 내용이 반복되는 구간에서 변경 구간을 위아래로 밀어 인접한 변경 구간과 합치고,
+  // 합칠 것이 없으면 가능한 한 아래로, 상대편에 대응하는 변경 구간이 있으면 그쪽에 맞춘다.
+  // 변경 구간 경계의 같은 줄끼리 맞바꾸는 것뿐이라 편집 수는 바뀌지 않는다.
+  // ch*: 앞뒤로 0 한 칸씩 덧댄 배열 (논리 인덱스 i는 ch[i + 1]).
+  function shiftBoundaries(eqA, chA, eqB, chB) {
+    for (var f = 0; f < 2; f++) {
+      var changed = f === 0 ? chA : chB;
+      var other = f === 0 ? chB : chA;
+      var equivs = f === 0 ? eqA : eqB;
+      var iEnd = equivs.length;
+      var i = 0, j = 0, start, runlength, corresponding;
+      for (;;) {
+        // 다음 변경 구간의 시작을 찾으며 상대편의 대응 위치 j를 따라간다
+        while (i < iEnd && !changed[i + 1]) {
+          while (other[(j++) + 1]) { /* 상대편 변경 줄 건너뜀 */ }
+          i++;
+        }
+        if (i === iEnd) break;
+        start = i;
+        while (changed[(++i) + 1]) { /* 구간 끝 */ }
+        while (other[j + 1]) j++;
+        do {
+          runlength = i - start;
+          // 앞 줄이 구간 마지막 줄과 같으면 위로 민다 (앞 변경 구간과 합쳐짐)
+          while (start && equivs[start - 1] === equivs[i - 1]) {
+            changed[(--start) + 1] = 1;
+            changed[(--i) + 1] = 0;
+            while (changed[start]) start--;
+            while (other[(--j) + 1]) { /* */ }
+          }
+          corresponding = other[j] ? i : iEnd;
+          // 구간 첫 줄이 다음 줄과 같으면 아래로 민다 (뒤 변경 구간과 합쳐짐)
+          while (i !== iEnd && equivs[start] === equivs[i]) {
+            changed[(start++) + 1] = 0;
+            changed[(i++) + 1] = 1;
+            while (changed[i + 1]) i++;
+            while (other[(++j) + 1]) corresponding = i;
+          }
+        } while (runlength !== i - start);
+        // 가능하면 상대편 변경 구간과 맞닿는 위치로 되돌린다
+        while (corresponding < i) {
+          changed[(--start) + 1] = 1;
+          changed[(--i) + 1] = 0;
+          while (other[(--j) + 1]) { /* */ }
+        }
+      }
+    }
+  }
+
+  function padded(arr) {
+    var p = new Uint8Array(arr.length + 2);
+    p.set(arr, 1);
+    return p;
+  }
+
+  // ───────────────────────────── 줄 내부 diff (D9, D10) ─────────────────────────────
+
+  // 단어(문자·결합 문자·숫자·_) / 공백 덩어리 / 기호 1개. u 플래그라 서로게이트 쌍을 자르지 않는다.
+  var TOKEN_RE = /[\p{L}\p{M}\p{N}_]+|\s+|[^\p{L}\p{M}\p{N}_\s]/gu;
+  var INTRALINE_MAX_LEN = 10000;
+  var PAIR_MIN_SIMILARITY = 0.3;
+
+  function tokenize(s) {
+    return s.match(TOKEN_RE) || [];
+  }
+
+  // 변경된 토큰들을 UTF-16 구간으로 바꾸고 인접 구간을 병합한다.
+  function tokenRanges(tokens, changed) {
+    var ranges = [];
+    var pos = 0, last = null;
+    for (var i = 0; i < tokens.length; i++) {
+      var len = tokens[i].length;
+      if (changed[i]) {
+        if (last && last.end === pos) last.end = pos + len;
+        else { last = { start: pos, end: pos + len }; ranges.push(last); }
+      }
+      pos += len;
+    }
+    return ranges;
+  }
+
+  function diffTokens(aLine, bLine) {
+    if (aLine === '' && bLine === '') return { a: [], b: [], similarity: 1 };
+    var ta = tokenize(aLine), tb = tokenize(bLine);
+    var na = ta.length, nb = tb.length, i, id;
+    var ca = new Uint8Array(na), cb = new Uint8Array(nb);
+    // 공통 앞뒤 토큰은 변경 없음으로 확정하고 가운데만 비교한다
+    // (줄이 짝지어진 경우 대부분 가운데가 짧아서, 대용량 입력에서 토큰 diff 비용이 크게 준다)
+    var pre = 0, suf = 0;
+    while (pre < na && pre < nb && ta[pre] === tb[pre]) pre++;
+    while (suf < na - pre && suf < nb - pre && ta[na - 1 - suf] === tb[nb - 1 - suf]) suf++;
+    var ma = na - pre - suf, mb = nb - pre - suf;
+    if (ma === 0 || mb === 0) {
+      for (i = 0; i < ma; i++) ca[pre + i] = 1;
+      for (i = 0; i < mb; i++) cb[pre + i] = 1;
+    } else {
+      var map = new Map(), next = 0;
+      var ia = new Int32Array(ma), ib = new Int32Array(mb);
+      for (i = 0; i < ma; i++) {
+        id = map.get(ta[pre + i]);
+        if (id === undefined) { id = next++; map.set(ta[pre + i], id); }
+        ia[i] = id;
+      }
+      for (i = 0; i < mb; i++) {
+        id = map.get(tb[pre + i]);
+        if (id === undefined) { id = next++; map.set(tb[pre + i], id); }
+        ib[i] = id;
+      }
+      var r = computeChanges(ia, ib, next, Infinity);
+      ca.set(r.ca, pre);
+      cb.set(r.cb, pre);
+    }
+    var common = 0;
+    for (i = 0; i < na; i++) if (!ca[i]) common += ta[i].length;
+    return {
+      a: tokenRanges(ta, ca),
+      b: tokenRanges(tb, cb),
+      similarity: (2 * common) / (aLine.length + bLine.length),
+    };
+  }
+
+  // ───────────────────────────── diff ─────────────────────────────
+
+  function isBlankFn(ignoreWhitespace) {
+    var re = /^\s*$/;
+    return ignoreWhitespace ? function (s) { return re.test(s); } : function (s) { return s === ''; };
+  }
+
+  function diff(oldText, newText, options) {
+    var opts = options || {};
+    var ignoreBlankLines = !!opts.ignoreBlankLines;
+    var intraline = opts.intraline !== false;
+
+    var so = splitLines(oldText), sn = splitLines(newText);
+    var oldLines = so.lines, newLines = sn.lines;
+    var N = oldLines.length, M = newLines.length;
+    var budget = typeof opts.budget === 'number' ? opts.budget : defaultBudget(N + M);
+
+    var ids = buildIds(oldLines, so.eol, newLines, sn.eol, opts);
+    var r = computeChanges(ids.a, ids.b, ids.idCount, budget);
+
+    var chA = padded(r.ca), chB = padded(r.cb);
+    shiftBoundaries(ids.a, chA, ids.b, chB);
+
+    // 블록 구성: 두 변경 표시 배열을 함께 걷는다
+    var blocks = [];
+    var i = 0, j = 0, s0, s1;
+    while (i < N || j < M) {
+      if (i < N && j < M && !chA[i + 1] && !chB[j + 1]) {
+        s0 = i; s1 = j;
+        while (i < N && j < M && !chA[i + 1] && !chB[j + 1]) {
+          // 둘 다 변경되지 않은 위치라면 같은 ID여야 한다
+          if (ids.a[i] !== ids.b[j]) throw new Error('DiffCore: 정렬 불일치 at ' + i + '/' + j);
+          i++; j++;
+        }
+        blocks.push({ type: 'equal', oldStart: s0, oldEnd: i, newStart: s1, newEnd: j });
+      } else {
+        s0 = i; s1 = j;
+        while (i < N && chA[i + 1]) i++;
+        while (j < M && chB[j + 1]) j++;
+        if (i === s0 && j === s1) throw new Error('DiffCore: 빈 변경 블록 at ' + i + '/' + j);
+        blocks.push({ type: 'change', oldStart: s0, oldEnd: i, newStart: s1, newEnd: j });
+      }
+    }
+
+    // D6: 삭제·추가 줄이 전부 빈 줄인 변경 블록은 ignored
+    if (ignoreBlankLines) {
+      var isBlank = isBlankFn(!!opts.ignoreWhitespace);
+      for (var bi = 0; bi < blocks.length; bi++) {
+        var bl = blocks[bi];
+        if (bl.type !== 'change') continue;
+        var all = true, t;
+        for (t = bl.oldStart; all && t < bl.oldEnd; t++) if (!isBlank(oldLines[t])) all = false;
+        for (t = bl.newStart; all && t < bl.newEnd; t++) if (!isBlank(newLines[t])) all = false;
+        bl.ignored = all;
+      }
+    }
+
+    var added = 0, removed = 0, changes = 0;
+    for (var q = 0; q < blocks.length; q++) {
+      var B = blocks[q];
+      if (B.type !== 'change' || B.ignored) continue;
+      changes++;
+      removed += B.oldEnd - B.oldStart;
+      added += B.newEnd - B.newStart;
+      if (intraline) B.pairs = linePairs(B, oldLines, newLines);
+    }
+
+    return {
+      oldLines: oldLines, newLines: newLines,
+      oldEol: so.eol, newEol: sn.eol,
+      blocks: blocks,
+      stats: { added: added, removed: removed, changes: changes },
+      minimal: r.minimal,
+      identical: oldText === newText,
+      equivalent: changes === 0,
+    };
+  }
+
+  // D10: 삭제 i번째와 추가 i번째를 위치 기준으로 짝짓는다
+  function linePairs(block, oldLines, newLines) {
+    var pairs = [];
+    var n = Math.min(block.oldEnd - block.oldStart, block.newEnd - block.newStart);
+    for (var i = 0; i < n; i++) {
+      var oi = block.oldStart + i, ni = block.newStart + i;
+      var a = oldLines[oi], b = newLines[ni];
+      if (a.length > INTRALINE_MAX_LEN || b.length > INTRALINE_MAX_LEN) continue;
+      var t = diffTokens(a, b);
+      if (t.similarity < PAIR_MIN_SIMILARITY) continue;
+      pairs.push({ oldIndex: oi, newIndex: ni, oldRanges: t.a, newRanges: t.b });
+    }
+    return pairs;
+  }
+
+  // ───────────────────────────── unified patch (D11, D12) ─────────────────────────────
+
+  function hunkRange(start0, len) {
+    if (len === 0) return start0 + ',0';
+    if (len === 1) return String(start0 + 1);
+    return (start0 + 1) + ',' + len;
+  }
+
+  function headerName(name, fallback) {
+    var s = name === undefined || name === null || name === '' ? fallback : String(name);
+    return s.replace(/[\r\n]/g, ' ');
+  }
+
+  var NO_EOL_MARK = '\\ No newline at end of file';
+
+  // hunk 묶기: ignored 블록도 다른 변경 블록과 똑같이 취급해, 앞 변경의 끝과 다음 변경의 시작
+  // 사이 old 줄 수가 2*context 이하면 같은 hunk로 묶는다. ignored 블록만으로 된 hunk는 출력하지 않는다.
+  // 이렇게 하면 hunk 사이 간격이 항상 2*context+1 이상이라 앞뒤 컨텍스트가 파일 경계에서만 잘리고
+  // hunk끼리 겹치지 않는다. (뒤 컨텍스트가 앞보다 짧은 hunk는 GNU patch가 "파일 끝에만 맞는 hunk"로
+  // 해석해 거부한다 — PROGRESS.md 계획 변경 기록 참고)
+  function makeUnifiedPatch(result, opts) {
+    var o = opts || {};
+    var context = o.context === undefined ? 3 : o.context;
+    if (!(context >= 0)) context = 0;
+    var blocks = result.blocks;
+    var oldLines = result.oldLines, newLines = result.newLines;
+    var N = oldLines.length, M = newLines.length;
+
+    var groups = [], cur = null, prev = null;
+    for (var i = 0; i < blocks.length; i++) {
+      var b = blocks[i];
+      if (b.type !== 'change') continue;
+      if (cur && b.oldStart - prev.oldEnd <= 2 * context) {
+        cur.last = i;
+      } else {
+        cur = { first: i, last: i, effective: false };
+        groups.push(cur);
+      }
+      if (!b.ignored) cur.effective = true;
+      prev = b;
+    }
+
+    var out = [];
+    for (var g = 0; g < groups.length; g++) {
+      var grp = groups[g];
+      if (!grp.effective) continue;
+      var fb = blocks[grp.first], lb = blocks[grp.last];
+      // 앞뒤 블록은 불변식상 equal(또는 없음)이고, 위 묶기 규칙 덕분에 context 줄 이상이다(파일 경계 제외)
+      var pre = Math.min(context, fb.oldStart);
+      var post = Math.min(context, N - lb.oldEnd);
+      var oStart = fb.oldStart - pre, nStart = fb.newStart - pre;
+      var oEnd = lb.oldEnd + post, nEnd = lb.newEnd + post;
+      if (nStart < 0 || nEnd > M) throw new Error('DiffCore: hunk 컨텍스트 범위 오류');
+
+      out.push('@@ -' + hunkRange(oStart, oEnd - oStart) + ' +' + hunkRange(nStart, nEnd - nStart) + ' @@');
+      var k, t;
+      var emitCtx = function (from, to) {
+        for (var x = from; x < to; x++) {
+          out.push(' ' + oldLines[x]);
+          if (x === N - 1 && !result.oldEol) out.push(NO_EOL_MARK);
+        }
+      };
+      emitCtx(oStart, fb.oldStart);
+      for (k = grp.first; k <= grp.last; k++) {
+        var blk = blocks[k];
+        if (blk.type === 'equal') {
+          emitCtx(blk.oldStart, blk.oldEnd);
+        } else {
+          for (t = blk.oldStart; t < blk.oldEnd; t++) {
+            out.push('-' + oldLines[t]);
+            if (t === N - 1 && !result.oldEol) out.push(NO_EOL_MARK);
+          }
+          for (t = blk.newStart; t < blk.newEnd; t++) {
+            out.push('+' + newLines[t]);
+            if (t === M - 1 && !result.newEol) out.push(NO_EOL_MARK);
+          }
+        }
+      }
+      emitCtx(lb.oldEnd, oEnd);
+    }
+    if (!out.length) return '';
+    return '--- ' + headerName(o.oldName, 'a') + '\n+++ ' + headerName(o.newName, 'b') + '\n' +
+      out.join('\n') + '\n';
+  }
+
+  // ───────────────────────────── patch 적용 (테스트용, 엄격) ─────────────────────────────
+
+  var HUNK_RE = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
+
+  function applyUnifiedPatch(oldText, patchText) {
+    if (patchText === '') return oldText;
+    if (patchText.charCodeAt(patchText.length - 1) !== 10) throw new Error('patch가 개행으로 끝나지 않음');
+    var pl = patchText.slice(0, -1).split('\n');
+    if (pl.length < 2 || pl[0].slice(0, 4) !== '--- ' || pl[1].slice(0, 4) !== '+++ ') {
+      throw new Error('patch 헤더(---/+++)가 없음');
+    }
+    var so = splitLines(oldText);
+    var old = so.lines, oldEol = so.eol, N = old.length;
+    var out = [];
+    var outNoEol = false;      // 결과의 마지막 줄이 "개행 없음"으로 확정됨 → 더 붙일 수 없음
+    var pos = 0;               // old에서 다음 줄
+    var p = 2;
+
+    function fail(msg) { throw new Error('patch 적용 실패 (patch ' + (p + 1) + '번째 줄): ' + msg); }
+    function push(s) {
+      if (outNoEol) fail('개행 없음 표식 뒤에 줄이 더 있음');
+      out.push(s);
+    }
+
+    if (p >= pl.length) fail('hunk가 없음');
+    while (p < pl.length) {
+      var m = HUNK_RE.exec(pl[p]);
+      if (!m) fail('hunk 헤더가 아님: ' + JSON.stringify(pl[p]));
+      var ol = m[2] === undefined ? 1 : +m[2];
+      var nl = m[4] === undefined ? 1 : +m[4];
+      var oStart0 = ol === 0 ? +m[1] : +m[1] - 1;
+      if (oStart0 < pos) fail('hunk가 겹치거나 순서가 틀림');
+      if (oStart0 + ol > N) fail('hunk가 원본 끝을 넘음');
+      while (pos < oStart0) push(old[pos++]);
+      p++;
+      var oc = 0, nc = 0, needOldMark = false, last = '';
+      while (p < pl.length) {
+        var line = pl[p];
+        var tag = line.charAt(0);
+        if (tag === '\\') {
+          if (line !== NO_EOL_MARK) fail('알 수 없는 \\ 줄');
+          if (last === ' ' || last === '-') {
+            if (!needOldMark) fail('원본 줄은 개행으로 끝나는데 개행 없음 표식이 있음');
+            needOldMark = false;
+            if (last === ' ') outNoEol = true;
+          } else if (last === '+') {
+            outNoEol = true;
+          } else {
+            fail('표식 앞에 줄이 없음');
+          }
+          last = '\\';
+          p++;
+          continue;
+        }
+        if (needOldMark) fail('원본 마지막 줄에 개행이 없는데 표식이 없음');
+        if (oc === ol && nc === nl) break;
+        var text = line.slice(1);
+        if (tag === ' ' || tag === '-') {
+          if (pos >= N) fail('원본 끝을 넘음');
+          if (old[pos] !== text) fail('원본과 다름: ' + JSON.stringify(old[pos]) + ' ≠ ' + JSON.stringify(text));
+          if (pos === N - 1 && !oldEol) needOldMark = true;
+          if (tag === ' ') { push(text); nc++; }
+          pos++; oc++;
+        } else if (tag === '+') {
+          push(text); nc++;
+        } else {
+          fail('알 수 없는 줄 종류: ' + JSON.stringify(line));
+        }
+        if (oc > ol || nc > nl) fail('hunk 헤더의 줄 수보다 많음');
+        last = tag;
+        p++;
+      }
+      if (needOldMark) fail('원본 마지막 줄에 개행이 없는데 표식이 없음');
+      if (oc !== ol || nc !== nl) fail('hunk 헤더의 줄 수와 본문이 다름');
+    }
+    var copiedTail = pos < N;
+    while (pos < N) push(old[pos++]);
+    var eol = copiedTail ? oldEol : !outNoEol;
+    if (!out.length) return '';
+    return out.join('\n') + (eol ? '\n' : '');
+  }
+
+  global.DiffCore = {
+    VERSION: VERSION,
+    splitLines: splitLines,
+    diff: diff,
+    makeUnifiedPatch: makeUnifiedPatch,
+    applyUnifiedPatch: applyUnifiedPatch,
+    diffTokens: diffTokens,
+    defaultBudget: defaultBudget,
+  };
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+</script>
+<script>
+/* app.js — 텍스트 Diff 도구 UI. DiffCore(인라인 코어)를 Worker 또는 메인 스레드에서 실행한다. */
+(function () {
+  'use strict';
+
+  var Core = window.DiffCore;
+  var CHUNK_ROWS = 500;
+  var LINE_H = 20;
+  var BIG_FILE = 50 * 1024 * 1024;
+  var BINARY_SNIFF = 8192;
+  var DEFAULT_NAMES = { old: '원본', new: '변경본' };
+
+  function $(id) { return document.getElementById(id); }
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  // ───────────────────────────── 상태 ─────────────────────────────
+
+  var state = {
+    screen: 'input',
+    sides: {
+      // raw: 파일에서 읽은 원문, shown: 그것을 textarea에 넣은 뒤 읽은 값.
+      // textarea의 value는 \r\n·\r을 \n으로 정규화하므로(HTML 명세), 내용이 그대로면 원문을 쓴다.
+      old: { name: null, fromFile: false, raw: null, shown: null },
+      new: { name: null, fromFile: false, raw: null, shown: null },
+    },
+    viewPref: 'auto',          // 'auto' | 'sbs' | 'unified' (사용자가 명시적으로 고르면 고정)
+    result: null,              // 마지막 DiffResult (oldLines/newLines 포함)
+    req: null,                 // 그 결과를 만든 요청 { oldText, newText, options, names }
+    requestId: 0,
+    expanded: new Set(),       // 펼친 조용한 구간 (구간 첫 블록 인덱스)
+    expandAll: false,
+    anchors: [],               // 유효 변경 블록 인덱스
+    current: -1,
+    patchAfterCompute: false,
+  };
+
+  var ui = {
+    oldText: $('old-text'), newText: $('new-text'),
+    diff: $('diff'), status: $('status'),
+    summaryText: $('summary-text'), summaryBadges: $('summary-badges'),
+    foldToggle: $('fold-toggle'), navPos: $('nav-pos'),
+    optWs: $('opt-ws'), optCase: $('opt-case'), optBlank: $('opt-blank'), optContext: $('opt-context'),
+    viewSbs: $('view-sbs'), viewUni: $('view-unified'),
+  };
+  var narrowMQ = window.matchMedia('(max-width: 767px)');
+
+  function textArea(side) { return side === 'old' ? ui.oldText : ui.newText; }
+  function sideText(side) {
+    var s = state.sides[side], v = textArea(side).value;
+    return s.raw !== null && v === s.shown ? s.raw : v;
+  }
+  function displayName(side) { return state.sides[side].name || DEFAULT_NAMES[side]; }
+  function patchName(side) {
+    var s = state.sides[side];
+    return s.fromFile && s.name ? s.name : (side === 'old' ? 'a' : 'b');
+  }
+
+  function currentOptions() {
+    return {
+      ignoreWhitespace: ui.optWs.checked,
+      ignoreCase: ui.optCase.checked,
+      ignoreBlankLines: ui.optBlank.checked,
+    };
+  }
+  function contextLines() {
+    var v = ui.optContext.value;
+    return v === 'all' ? Infinity : Number(v);
+  }
+  function effectiveView() {
+    if (state.viewPref !== 'auto') return state.viewPref;
+    return narrowMQ.matches ? 'unified' : 'sbs';
+  }
+
+  // ───────────────────────────── 계산 (Worker / 메인 스레드) ─────────────────────────────
+
+  var engine = {
+    forceMain: new URLSearchParams(location.search).get('worker') === '0',
+    broken: false,
+    url: null,
+    worker: null,
+    busy: false,
+  };
+
+  function workerMain() {
+    self.onmessage = function (e) {
+      var m = e.data;
+      try {
+        var r = DiffCore.diff(m.oldText, m.newText, m.options);
+        // 줄 배열은 메인 스레드가 다시 자른다 (구조 복제 비용을 줄이기 위해)
+        r.oldLines = null;
+        r.newLines = null;
+        self.postMessage({ requestId: m.requestId, result: r });
+      } catch (err) {
+        self.postMessage({ requestId: m.requestId, error: String((err && err.message) || err) });
+      }
+    };
+  }
+
+  function getWorker() {
+    if (engine.forceMain || engine.broken) return null;
+    if (engine.worker) return engine.worker;
+    try {
+      if (!engine.url) {
+        // 빌드 시 인라인된 코어 소스를 그대로 Worker에 주입한다 (D13)
+        var src = $('diff-core').textContent + '\n;(' + workerMain.toString() + ')();\n';
+        engine.url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+      }
+      var w = new Worker(engine.url);
+      w.onmessage = onWorkerMessage;
+      w.onerror = onWorkerError;
+      engine.worker = w;
+      return w;
+    } catch (e) {
+      engine.broken = true;
+      return null;
+    }
+  }
+
+  function compute() {
+    var req = {
+      oldText: sideText('old'),
+      newText: sideText('new'),
+      options: currentOptions(),
+      names: { old: patchName('old'), new: patchName('new') },
+      displayNames: { old: displayName('old'), new: displayName('new') },
+      requestId: ++state.requestId,
+    };
+    state.pendingReq = req;
+    showScreen('result');
+    showStatus('busy');
+    // 계산 중에 새 요청이 오면 기존 Worker를 버리고 새로 만든다
+    if (engine.busy && engine.worker) {
+      engine.worker.terminate();
+      engine.worker = null;
+      engine.busy = false;
+    }
+    var w = getWorker();
+    if (w) {
+      engine.busy = true;
+      w.postMessage({ oldText: req.oldText, newText: req.newText, options: req.options, requestId: req.requestId });
+    } else {
+      runOnMain(req);
+    }
+  }
+
+  function runOnMain(req) {
+    // "비교 중…" 표시가 먼저 그려지도록 한 프레임 양보
+    requestAnimationFrame(function () {
+      setTimeout(function () {
+        if (req.requestId !== state.requestId) return;
+        var r;
+        try {
+          r = Core.diff(req.oldText, req.newText, req.options);
+        } catch (e) {
+          computeFailed(String((e && e.message) || e));
+          return;
+        }
+        finish(req, r, 'main');
+      }, 0);
+    });
+  }
+
+  function onWorkerMessage(e) {
+    engine.busy = false;
+    var m = e.data;
+    if (m.requestId !== state.requestId) return;
+    if (m.error) computeFailed(m.error);
+    else finish(state.pendingReq, m.result, 'worker');
+  }
+
+  function onWorkerError(e) {
+    // Worker 스크립트를 실행할 수 없는 환경: 메인 스레드로 폴백
+    if (e && e.preventDefault) e.preventDefault();
+    engine.busy = false;
+    engine.broken = true;
+    if (engine.worker) engine.worker.terminate();
+    engine.worker = null;
+    if (state.pendingReq && state.pendingReq.requestId === state.requestId) runOnMain(state.pendingReq);
+  }
+
+  function finish(req, r, engineName) {
+    if (!r.oldLines) r.oldLines = Core.splitLines(req.oldText).lines;
+    if (!r.newLines) r.newLines = Core.splitLines(req.newText).lines;
+    state.result = r;
+    state.req = req;
+    state.anchors = [];
+    for (var i = 0; i < r.blocks.length; i++) {
+      if (r.blocks[i].type === 'change' && !r.blocks[i].ignored) state.anchors.push(i);
+    }
+    state.current = -1;
+    state.expanded = new Set();
+    state.expandAll = false;
+    document.body.dataset.engine = engineName;
+    hideStatus();
+    renderResult();
+    if (state.patchAfterCompute) {
+      state.patchAfterCompute = false;
+      openPatch();
+    }
+  }
+
+  function computeFailed(message) {
+    engine.busy = false;
+    showStatus('error', '비교 중 오류가 발생했습니다: ' + message);
+  }
+
+  // ───────────────────────────── 화면 전환·상태 표시 ─────────────────────────────
+
+  function showScreen(name) {
+    state.screen = name;
+    document.body.dataset.screen = name;
+    $('input-screen').hidden = name !== 'input';
+    $('result-screen').hidden = name !== 'result';
+  }
+
+  function showStatus(kind, message) {
+    var s = ui.status;
+    s.hidden = false;
+    s.className = 'status' + (kind === 'error' ? ' error' : '');
+    s.replaceChildren();
+    document.body.dataset.state = kind;
+    if (kind === 'busy') {
+      delete ui.summaryText.dataset.added;
+      delete ui.summaryText.dataset.removed;
+      delete ui.summaryText.dataset.changes;
+      ui.diff.dataset.rendered = 'false';
+      s.appendChild(el('span', 'spinner'));
+      s.appendChild(document.createTextNode('비교 중…'));
+      s.setAttribute('role', 'status');
+      ui.diff.replaceChildren();
+      ui.summaryText.replaceChildren();
+      ui.summaryBadges.replaceChildren();
+      updateNav();
+    } else {
+      s.setAttribute('role', 'alert');
+      s.appendChild(document.createTextNode(message));
+      var retry = el('button', 'small', '다시 시도');
+      retry.type = 'button';
+      retry.addEventListener('click', compute);
+      s.appendChild(retry);
+    }
+  }
+  function hideStatus() {
+    ui.status.hidden = true;
+    document.body.dataset.state = 'ready';
+  }
+
+  // ───────────────────────────── 행 모델 ─────────────────────────────
+  // 행: {t:'e', o, n} equal / {t:'c', o, n, blk, ign, pair} 나란히 변경 / {t:'d'|'a', o|n, blk, ign, ranges} 통합 변경
+  //     {t:'f', key, rows} 접힌 구간
+
+  function pairMap(b) {
+    var m = new Map();
+    if (b.pairs) for (var i = 0; i < b.pairs.length; i++) m.set(b.pairs[i].oldIndex, b.pairs[i]);
+    return m;
+  }
+
+  function pushChangeRows(out, b, blk, view) {
+    var del = b.oldEnd - b.oldStart, add = b.newEnd - b.newStart;
+    var pm = pairMap(b);
+    var ign = !!b.ignored;
+    var k, p;
+    if (view === 'sbs') {
+      var n = Math.max(del, add);
+      for (k = 0; k < n; k++) {
+        var o = k < del ? b.oldStart + k : -1;
+        p = o >= 0 ? pm.get(o) : undefined;
+        out.push({ t: 'c', o: o, n: k < add ? b.newStart + k : -1, blk: blk, ign: ign, pair: p, first: k === 0 });
+      }
+    } else {
+      var byNew = new Map();
+      pm.forEach(function (v) { byNew.set(v.newIndex, v); });
+      for (k = 0; k < del; k++) {
+        p = pm.get(b.oldStart + k);
+        out.push({ t: 'd', o: b.oldStart + k, blk: blk, ign: ign, ranges: p && p.oldRanges, first: k === 0 });
+      }
+      for (k = 0; k < add; k++) {
+        p = byNew.get(b.newStart + k);
+        out.push({ t: 'a', n: b.newStart + k, blk: blk, ign: ign, ranges: p && p.newRanges, first: k === 0 && del === 0 });
+      }
+    }
+  }
+
+  function buildRows(r, view, context) {
+    var rows = [];
+    var blocks = r.blocks;
+    var totalAnchors = state.anchors.length;
+    var seen = 0;
+    var i = 0;
+    while (i < blocks.length) {
+      var b = blocks[i];
+      if (b.type === 'change' && !b.ignored) {
+        pushChangeRows(rows, b, i, view);
+        seen++;
+        i++;
+        continue;
+      }
+      // 조용한 구간: 유효 변경 사이의 equal 블록과 ignored 블록 (ignored는 접기 판단에서 변경이 아님 — D6)
+      var key = i;
+      var region = [];
+      while (i < blocks.length && !(blocks[i].type === 'change' && !blocks[i].ignored)) {
+        var q = blocks[i];
+        if (q.type === 'equal') {
+          for (var k = 0; k < q.oldEnd - q.oldStart; k++) region.push({ t: 'e', o: q.oldStart + k, n: q.newStart + k });
+        } else {
+          pushChangeRows(region, q, i, view);
+        }
+        i++;
+      }
+      var before = seen > 0 ? context : 0;
+      var after = seen < totalAnchors ? context : 0;
+      var hidden = region.length - before - after;
+      if (context === Infinity || state.expandAll || state.expanded.has(key) || hidden < 2) {
+        for (var a = 0; a < region.length; a++) rows.push(region[a]);
+      } else {
+        for (var x = 0; x < before; x++) rows.push(region[x]);
+        rows.push({ t: 'f', key: key, rows: region.slice(before, region.length - after) });
+        for (var y = region.length - after; y < region.length; y++) rows.push(region[y]);
+      }
+    }
+    return rows;
+  }
+
+  // 행 목록 → 렌더링 단위: 500행 청크, 접힌 구간은 단독 단위 (펼칠 때 그 자리만 바꿔 끼운다)
+  function toParts(rows) {
+    var parts = [], cur = null;
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      if (row.t === 'f') {
+        cur = null;
+        parts.push({ fold: row });
+        continue;
+      }
+      if (!cur || cur.rows.length >= CHUNK_ROWS) {
+        cur = { rows: [] };
+        parts.push(cur);
+      }
+      cur.rows.push(row);
+    }
+    return parts;
+  }
+
+  // ───────────────────────────── 렌더링 ─────────────────────────────
+
+  var render = { gen: 0, timer: 0, parts: null, idx: 0, view: 'sbs' };
+
+  function appendText(parent, s, showCR) {
+    if (!showCR || s.indexOf('\r') < 0) {
+      parent.appendChild(document.createTextNode(s));
+      return;
+    }
+    var bits = s.split('\r');
+    for (var i = 0; i < bits.length; i++) {
+      if (i) parent.appendChild(el('span', 'cr', '␍'));
+      if (bits[i]) parent.appendChild(document.createTextNode(bits[i]));
+    }
+  }
+
+  // 사용자 텍스트는 textContent/텍스트 노드로만 넣는다 (innerHTML 금지 — XSS 방지)
+  function fillCode(cell, text, ranges, hlClass, showCR) {
+    if (!ranges || !ranges.length) {
+      appendText(cell, text, showCR);
+      return;
+    }
+    var pos = 0;
+    for (var i = 0; i < ranges.length; i++) {
+      var rg = ranges[i];
+      if (rg.start > pos) appendText(cell, text.slice(pos, rg.start), showCR);
+      var s = el('span', hlClass);
+      appendText(s, text.slice(rg.start, rg.end), showCR);
+      cell.appendChild(s);
+      pos = rg.end;
+    }
+    if (pos < text.length) appendText(cell, text.slice(pos), showCR);
+  }
+
+  function noEolMark(cell) {
+    var m = el('span', 'noeol', '⏎ 없음');
+    m.title = '파일 끝에 개행 없음';
+    cell.appendChild(m);
+  }
+
+  function lnCell(num, cls) {
+    return el('div', 'ln' + (cls ? ' ' + cls : ''), num >= 0 ? String(num + 1) : '');
+  }
+
+  function codeCell(side, idx, cls, ranges, showCR) {
+    var r = state.result;
+    var c = el('div', 'code' + (cls ? ' ' + cls : ''));
+    if (idx < 0) return c;
+    var text = side === 'old' ? r.oldLines[idx] : r.newLines[idx];
+    fillCode(c, text, ranges, cls === 'del' ? 'hl-del' : 'hl-add', showCR);
+    var last = side === 'old' ? r.oldLines.length - 1 : r.newLines.length - 1;
+    var eol = side === 'old' ? r.oldEol : r.newEol;
+    if (idx === last && !eol) noEolMark(c);
+    return c;
+  }
+
+  function rowElement(row, view) {
+    var e = el('div', 'row');
+    var r = state.result;
+    if (row.t === 'e') {
+      e.dataset.oldLine = row.o + 1;
+      e.dataset.newLine = row.n + 1;
+      if (view === 'sbs') {
+        e.appendChild(lnCell(row.o));
+        e.appendChild(codeCell('old', row.o, ''));
+        e.appendChild(lnCell(row.n, 'new'));
+        e.appendChild(codeCell('new', row.n, ''));
+      } else {
+        e.appendChild(lnCell(row.o));
+        e.appendChild(lnCell(row.n));
+        var c = codeCell('old', row.o, '');
+        // 통합 보기의 equal 줄은 왼쪽 원문 하나만 보이므로, 오른쪽 끝 개행 없음도 함께 표시
+        if (row.n === r.newLines.length - 1 && !r.newEol && !(row.o === r.oldLines.length - 1 && !r.oldEol)) noEolMark(c);
+        e.appendChild(c);
+      }
+      return e;
+    }
+    e.classList.add('chg');
+    e.dataset.blk = row.blk;
+    if (row.ign) e.classList.add('ign');
+    if (row.t === 'c') {
+      if (row.o >= 0) e.dataset.oldLine = row.o + 1;
+      if (row.n >= 0) e.dataset.newLine = row.n + 1;
+      var hasO = row.o >= 0, hasN = row.n >= 0;
+      e.appendChild(lnCell(row.o, hasO ? 'del' : 'empty'));
+      e.appendChild(codeCell('old', row.o, hasO ? 'del' : 'empty', row.pair && row.pair.oldRanges, true));
+      e.appendChild(lnCell(row.n, 'new ' + (hasN ? 'add' : 'empty')));
+      e.appendChild(codeCell('new', row.n, hasN ? 'add' : 'empty', row.pair && row.pair.newRanges, true));
+    } else if (row.t === 'd') {
+      e.dataset.oldLine = row.o + 1;
+      e.appendChild(lnCell(row.o, 'del'));
+      e.appendChild(lnCell(-1, 'del'));
+      e.appendChild(codeCell('old', row.o, 'del', row.ranges, true));
+    } else {
+      e.dataset.newLine = row.n + 1;
+      e.appendChild(lnCell(-1, 'add'));
+      e.appendChild(lnCell(row.n, 'add'));
+      e.appendChild(codeCell('new', row.n, 'add', row.ranges, true));
+    }
+    if (row.ign && row.first) {
+      var cells = e.querySelectorAll('.code');
+      cells[cells.length - 1].appendChild(el('span', 'ign-tag', '무시됨'));
+    }
+    return e;
+  }
+
+  function foldElement(fold) {
+    var b = el('button', 'fold', '⋯ ' + fold.rows.length.toLocaleString('ko-KR') + '줄 숨김 (클릭해서 펼치기)');
+    b.type = 'button';
+    b.dataset.foldKey = fold.key;
+    b.addEventListener('click', function () { expandFold(fold, b); });
+    return b;
+  }
+
+  function chunkElement(rows, view) {
+    var c = el('div', 'chunk');
+    c.style.containIntrinsicSize = 'auto ' + rows.length * LINE_H + 'px';
+    for (var i = 0; i < rows.length; i++) c.appendChild(rowElement(rows[i], view));
+    return c;
+  }
+
+  function partElement(part, view) {
+    return part.fold ? foldElement(part.fold) : chunkElement(part.rows, view);
+  }
+
+  function expandFold(fold, button) {
+    state.expanded.add(fold.key);
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < fold.rows.length; i += CHUNK_ROWS) {
+      frag.appendChild(chunkElement(fold.rows.slice(i, i + CHUNK_ROWS), render.view));
+    }
+    button.replaceWith(frag);
+  }
+
+  function diffHeader(view) {
+    var h = el('div', 'diff-head');
+    var names = state.req ? state.req.displayNames : DEFAULT_NAMES;
+    if (view === 'sbs') {
+      h.appendChild(el('div', '', names.old));
+      h.appendChild(el('div', '', names.new));
+    } else {
+      var d = el('div');
+      d.appendChild(el('span', 'minus', '− '));
+      d.appendChild(document.createTextNode(names.old + '   '));
+      d.appendChild(el('span', 'plus', '+ '));
+      d.appendChild(document.createTextNode(names.new));
+      h.appendChild(d);
+    }
+    return h;
+  }
+
+  function renderResult() {
+    var r = state.result;
+    if (!r) return;
+    renderSummary();
+    renderDiff();
+    updateNav();
+    updateViewButtons();
+  }
+
+  function renderSummary() {
+    var r = state.result, s = r.stats;
+    var t = ui.summaryText;
+    t.replaceChildren();
+    t.dataset.added = s.added;
+    t.dataset.removed = s.removed;
+    t.dataset.changes = s.changes;
+    if (r.identical) {
+      t.appendChild(document.createTextNode('두 텍스트가 같습니다'));
+    } else if (r.equivalent) {
+      t.appendChild(document.createTextNode('차이 없음(무시 옵션 기준)'));
+    } else {
+      t.appendChild(el('span', 'plus', '+' + s.added.toLocaleString('ko-KR')));
+      t.appendChild(document.createTextNode(' '));
+      t.appendChild(el('span', 'minus', '−' + s.removed.toLocaleString('ko-KR')));
+      t.appendChild(document.createTextNode(' · 변경 ' + s.changes.toLocaleString('ko-KR') + '곳'));
+    }
+    var b = ui.summaryBadges;
+    b.replaceChildren();
+    if (!r.minimal) {
+      var w = el('span', 'badge warn', '대용량 입력이라 최소 diff가 아닐 수 있음');
+      w.id = 'badge-nonminimal';
+      b.appendChild(w);
+    }
+    var ignored = 0;
+    for (var i = 0; i < r.blocks.length; i++) if (r.blocks[i].ignored) ignored++;
+    if (ignored) b.appendChild(el('span', 'badge', '무시된 변경 ' + ignored + '곳'));
+    if (r.identical || r.equivalent) b.appendChild(el('span', 'badge ok', '차이 없음'));
+  }
+
+  function renderDiff() {
+    var r = state.result;
+    var view = effectiveView();
+    var context = contextLines();
+    clearTimeout(render.timer);
+    var gen = ++render.gen;
+    render.view = view;
+    ui.diff.dataset.rendered = 'false';
+
+    var d = ui.diff;
+    d.className = 'diff ' + (view === 'sbs' ? 'sbs' : 'uni');
+    var digits = String(Math.max(r.oldLines.length, r.newLines.length, 1)).length;
+    d.style.setProperty('--ln-w', (digits + 2) + 'ch');
+    d.replaceChildren(diffHeader(view));
+
+    ui.foldToggle.disabled = context === Infinity;
+    ui.foldToggle.textContent = state.expandAll ? '모두 접기' : '모두 펼치기';
+
+    if (r.blocks.length === 0) {
+      d.appendChild(el('div', 'empty-note', '두 텍스트 모두 비어 있습니다'));
+      render.parts = [];
+      render.idx = 0;
+      ui.diff.dataset.rendered = 'true';
+      return;
+    }
+
+    render.parts = toParts(buildRows(r, view, context));
+    render.idx = 0;
+    // 첫 화면은 바로 그리고, 나머지는 작업을 잘게 나눠 메인 스레드를 막지 않는다
+    var step = function () {
+      if (gen !== render.gen) return;
+      renderParts(12);
+      if (render.idx < render.parts.length) render.timer = setTimeout(step, 0);
+      else {
+        ui.diff.dataset.rendered = 'true';
+        applyCurrent(false);
+      }
+    };
+    step();
+  }
+
+  function renderParts(budgetMs) {
+    var t0 = performance.now();
+    var frag = document.createDocumentFragment();
+    while (render.idx < render.parts.length && performance.now() - t0 < budgetMs) {
+      frag.appendChild(partElement(render.parts[render.idx++], render.view));
+    }
+    ui.diff.appendChild(frag);
+  }
+
+  // 아직 그리지 않은 블록으로 이동할 때는 그 블록까지 즉시 그린다
+  function ensureBlockRendered(blk) {
+    var sel = '[data-blk="' + blk + '"]';
+    var found = ui.diff.querySelector(sel);
+    while (!found && render.idx < render.parts.length) {
+      renderParts(50);
+      found = ui.diff.querySelector(sel);
+    }
+    return found;
+  }
+
+  // ───────────────────────────── 변경 간 이동 ─────────────────────────────
+
+  function updateNav() {
+    var total = state.result && state.screen === 'result' ? state.anchors.length : 0;
+    ui.navPos.textContent = (state.current >= 0 ? state.current + 1 : 0) + ' / ' + total;
+    $('nav-prev').disabled = total === 0;
+    $('nav-next').disabled = total === 0;
+  }
+
+  function applyCurrent(scroll) {
+    var prev = ui.diff.querySelectorAll('.row.current');
+    for (var i = 0; i < prev.length; i++) prev[i].classList.remove('current', 'current-first', 'current-last');
+    if (state.current < 0) return;
+    var blk = state.anchors[state.current];
+    var first = ensureBlockRendered(blk);
+    if (!first) return;
+    var rows = ui.diff.querySelectorAll('[data-blk="' + blk + '"]');
+    for (var j = 0; j < rows.length; j++) rows[j].classList.add('current');
+    rows[0].classList.add('current-first');
+    rows[rows.length - 1].classList.add('current-last');
+    if (scroll) {
+      var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      first.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'auto' });
+      // content-visibility로 건너뛴 청크가 그려지며 위치가 바뀔 수 있어 한 번 더 맞춘다
+      requestAnimationFrame(function () { first.scrollIntoView({ block: 'center' }); });
+    }
+  }
+
+  function navigate(delta) {
+    var n = state.anchors.length;
+    if (!state.result || n === 0) return;
+    if (state.current < 0) state.current = delta > 0 ? 0 : n - 1;
+    else state.current = Math.max(0, Math.min(n - 1, state.current + delta));
+    updateNav();
+    applyCurrent(true);
+  }
+
+  // ───────────────────────────── 보기·옵션 ─────────────────────────────
+
+  function updateViewButtons() {
+    var v = effectiveView();
+    ui.viewSbs.setAttribute('aria-pressed', String(v === 'sbs'));
+    ui.viewUni.setAttribute('aria-pressed', String(v === 'unified'));
+  }
+
+  function setView(v) {
+    state.viewPref = v;
+    updateViewButtons();
+    if (state.result && state.screen === 'result') {
+      renderDiff();
+    }
+  }
+
+  function onOptionChange() {
+    // 결과 화면이면 자동 재계산 (D6/§6.2)
+    if (state.screen === 'result' && state.req) compute();
+  }
+
+  // ───────────────────────────── patch ─────────────────────────────
+
+  function currentPatch() {
+    var r = state.result;
+    return Core.makeUnifiedPatch(r, {
+      oldName: state.req.names.old,
+      newName: state.req.names.new,
+      context: contextLines(),
+    });
+  }
+
+  function openPatch() {
+    var o0 = state.req && state.req.options, o1 = currentOptions();
+    var dirty = !state.req || state.screen !== 'result' ||
+      state.req.oldText !== sideText('old') || state.req.newText !== sideText('new') ||
+      o0.ignoreWhitespace !== o1.ignoreWhitespace || o0.ignoreCase !== o1.ignoreCase ||
+      o0.ignoreBlankLines !== o1.ignoreBlankLines;
+    if (dirty) {
+      state.patchAfterCompute = true;
+      compute();
+      return;
+    }
+    var patch = currentPatch();
+    var o = state.req.options;
+    $('patch-note').hidden = !(o.ignoreWhitespace || o.ignoreCase || o.ignoreBlankLines);
+    $('patch-note').textContent = '무시 옵션이 켜져 있습니다. 컨텍스트 줄은 왼쪽 원문으로 쓰이고, 무시된 차이는 patch에 반영되지 않습니다.';
+    $('patch-empty').hidden = patch !== '';
+    // textarea는 \r을 정규화하므로 표시용으로만 쓰고, 복사·다운로드는 원래 문자열을 쓴다
+    state.patchText = patch;
+    $('patch-text').value = patch;
+    $('patch-text').hidden = patch === '';
+    $('patch-copy').disabled = patch === '';
+    $('patch-download').disabled = patch === '';
+    $('patch-msg').textContent = '';
+    $('patch-dialog').showModal();
+  }
+
+  function patchFileName() {
+    var s = state.sides.old;
+    return s.fromFile && s.name ? s.name + '.diff' : 'changes.diff';
+  }
+
+  function downloadPatch() {
+    var text = state.patchText;
+    var url = URL.createObjectURL(new Blob([text], { type: 'text/x-diff;charset=utf-8' }));
+    var a = el('a');
+    a.href = url;
+    a.download = patchFileName();
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+    $('patch-msg').textContent = a.download + ' 저장';
+  }
+
+  function copyPatch() {
+    var ta = $('patch-text');
+    var msg = $('patch-msg');
+    var text = state.patchText;
+    var fallback = function () {
+      // copy 이벤트에서 원문을 직접 넣는다 (textarea 선택을 복사하면 \r이 사라짐)
+      var onCopy = function (e) {
+        e.clipboardData.setData('text/plain', text);
+        e.preventDefault();
+      };
+      document.addEventListener('copy', onCopy);
+      var ok = false;
+      try {
+        ta.focus();
+        ta.select();
+        ok = document.execCommand('copy');
+      } catch (e) { ok = false; }
+      document.removeEventListener('copy', onCopy);
+      if (ok) { msg.textContent = '복사했습니다'; return; }
+      ta.focus();
+      ta.select();
+      msg.textContent = '직접 선택해서 복사하세요';
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { msg.textContent = '복사했습니다'; }, fallback);
+    } else {
+      fallback();
+    }
+  }
+
+  // ───────────────────────────── 입력 패널 ─────────────────────────────
+
+  function countLines(t) {
+    if (t === '') return 0;
+    var n = 0, i = -1;
+    while ((i = t.indexOf('\n', i + 1)) !== -1) n++;
+    return t.charCodeAt(t.length - 1) === 10 ? n : n + 1;
+  }
+
+  function updatePane(side) {
+    var t = sideText(side);
+    $(side + '-name').textContent = displayName(side);
+    var b = $(side + '-badges');
+    b.replaceChildren();
+    b.appendChild(el('span', 'badge', countLines(t).toLocaleString('ko-KR') + '줄'));
+    if (t.indexOf('\r\n') !== -1) b.appendChild(el('span', 'badge', 'CRLF'));
+    if (t.charCodeAt(0) === 0xfeff) b.appendChild(el('span', 'badge', 'BOM'));
+    if (t !== '' && t.charCodeAt(t.length - 1) !== 10) b.appendChild(el('span', 'badge', '끝 개행 없음'));
+  }
+
+  var paneTimers = {};
+  function schedulePaneUpdate(side) {
+    if (paneTimers[side]) return;
+    paneTimers[side] = requestAnimationFrame(function () {
+      paneTimers[side] = 0;
+      updatePane(side);
+    });
+  }
+
+  function setSide(side, text, name, fromFile) {
+    var ta = textArea(side);
+    ta.value = text;
+    state.sides[side] = { name: name || null, fromFile: !!fromFile, raw: text, shown: ta.value };
+    setPaneMsg(side, '');
+    updatePane(side);
+  }
+
+  function setPaneMsg(side, msg) { $(side + '-msg').textContent = msg; }
+
+  function confirmBox(message, okLabel, cancelLabel) {
+    // window.confirm 대신 페이지 안 확인 상자 (자동화 테스트를 막지 않도록)
+    return new Promise(function (resolve) {
+      var back = el('div', 'confirm-backdrop');
+      var box = el('div', 'confirm-box');
+      box.setAttribute('role', 'alertdialog');
+      box.setAttribute('aria-modal', 'true');
+      box.appendChild(el('p', '', message));
+      var actions = el('div', 'actions');
+      var cancel = el('button', '', cancelLabel);
+      var ok = el('button', 'primary', okLabel);
+      cancel.type = ok.type = 'button';
+      actions.appendChild(cancel);
+      actions.appendChild(ok);
+      box.appendChild(actions);
+      back.appendChild(box);
+      $('modal-root').appendChild(back);
+      ok.focus();
+      var done = function (v) { back.remove(); document.removeEventListener('keydown', onKey, true); resolve(v); };
+      var onKey = function (e) { if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
+      document.addEventListener('keydown', onKey, true);
+      ok.addEventListener('click', function () { done(true); });
+      cancel.addEventListener('click', function () { done(false); });
+    });
+  }
+
+  function loadFile(side, file) {
+    setPaneMsg(side, '');
+    var proceed = file.size > BIG_FILE
+      ? confirmBox('"' + file.name + '" 파일이 큽니다 (' + (file.size / 1048576).toFixed(0) + ' MB). 불러오면 브라우저가 느려질 수 있습니다. 계속할까요?', '불러오기', '취소')
+      : Promise.resolve(true);
+    return proceed.then(function (ok) {
+      if (!ok) return;
+      return file.arrayBuffer().then(function (buf) {
+        var bytes = new Uint8Array(buf);
+        // D16: 앞 8KB에 NUL 바이트가 있으면 바이너리
+        if (bytes.subarray(0, BINARY_SNIFF).indexOf(0) !== -1) {
+          setPaneMsg(side, '"' + file.name + '"은(는) 바이너리 파일로 보여 비교할 수 없습니다.');
+          return;
+        }
+        // D15: UTF-8 고정, BOM은 지우지 않는다
+        var text = new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes);
+        setSide(side, text, file.name, true);
+      });
+    }).catch(function (e) {
+      setPaneMsg(side, '파일을 읽지 못했습니다: ' + ((e && e.message) || e));
+    });
+  }
+
+  function loadDropped(files, side) {
+    if (files.length >= 2) {
+      loadFile('old', files[0]);
+      loadFile('new', files[1]);
+    } else if (files.length === 1) {
+      var target = side || (sideText('old') === '' ? 'old' : 'new');
+      loadFile(target, files[0]);
+    }
+  }
+
+  function hasFiles(e) {
+    var types = e.dataTransfer && e.dataTransfer.types;
+    return !!types && Array.prototype.indexOf.call(types, 'Files') !== -1;
+  }
+
+  function swapSides() {
+    var o = ui.oldText.value, n = ui.newText.value;
+    var so = state.sides.old, sn = state.sides.new;
+    var mo = $('old-msg').textContent, mn = $('new-msg').textContent;
+    ui.oldText.value = n;
+    ui.newText.value = o;
+    state.sides = { old: sn, new: so };
+    setPaneMsg('old', mn);
+    setPaneMsg('new', mo);
+    updatePane('old');
+    updatePane('new');
+  }
+
+  // ───────────────────────────── 이벤트 연결 ─────────────────────────────
+
+  $('compare').addEventListener('click', compute);
+  $('back').addEventListener('click', function () { showScreen('input'); updateNav(); });
+  ui.viewSbs.addEventListener('click', function () { setView('sbs'); });
+  ui.viewUni.addEventListener('click', function () { setView('unified'); });
+  [ui.optWs, ui.optCase, ui.optBlank].forEach(function (c) { c.addEventListener('change', onOptionChange); });
+  ui.optContext.addEventListener('change', function () {
+    if (state.result && state.screen === 'result') renderDiff();
+  });
+  ui.foldToggle.addEventListener('click', function () {
+    state.expandAll = !state.expandAll;
+    if (!state.expandAll) state.expanded = new Set();
+    renderDiff();
+  });
+  $('nav-prev').addEventListener('click', function () { navigate(-1); });
+  $('nav-next').addEventListener('click', function () { navigate(1); });
+  $('patch-open').addEventListener('click', openPatch);
+  $('patch-copy').addEventListener('click', copyPatch);
+  $('patch-download').addEventListener('click', downloadPatch);
+  $('help-open').addEventListener('click', function () { $('help-dialog').showModal(); });
+  document.querySelectorAll('dialog [data-close]').forEach(function (b) {
+    b.addEventListener('click', function () { b.closest('dialog').close(); });
+  });
+  document.querySelectorAll('dialog').forEach(function (d) {
+    // 바깥(배경) 클릭으로 닫기
+    d.addEventListener('click', function (e) { if (e.target === d) d.close(); });
+  });
+
+  $('theme').addEventListener('change', function (e) {
+    // D17: 저장소에 남기지 않고 세션 동안만 유지
+    var v = e.target.value;
+    if (v === 'system') delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = v;
+  });
+
+  narrowMQ.addEventListener('change', function () {
+    if (state.viewPref !== 'auto') return;
+    updateViewButtons();
+    if (state.result && state.screen === 'result') renderDiff();
+  });
+
+  ['old', 'new'].forEach(function (side) {
+    var ta = textArea(side);
+    ta.addEventListener('input', function () { schedulePaneUpdate(side); });
+    var fileInput = $(side + '-file');
+    fileInput.addEventListener('change', function () {
+      if (fileInput.files.length) loadFile(side, fileInput.files[0]);
+      fileInput.value = '';
+    });
+  });
+
+  document.querySelectorAll('[data-action]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var side = b.dataset.side;
+      if (b.dataset.action === 'open') $(side + '-file').click();
+      else if (b.dataset.action === 'clear') {
+        setSide(side, '', null, false);
+        textArea(side).focus();
+      }
+    });
+  });
+  $('swap').addEventListener('click', swapSides);
+
+  document.querySelectorAll('.pane').forEach(function (pane) {
+    var side = pane.dataset.side;
+    pane.addEventListener('dragover', function (e) {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      pane.classList.add('drop');
+    });
+    pane.addEventListener('dragleave', function (e) {
+      if (!pane.contains(e.relatedTarget)) pane.classList.remove('drop');
+    });
+    pane.addEventListener('drop', function (e) {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      pane.classList.remove('drop');
+      loadDropped(e.dataTransfer.files, side);
+    });
+  });
+  document.addEventListener('dragover', function (e) { if (hasFiles(e)) e.preventDefault(); });
+  document.addEventListener('drop', function (e) {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    document.querySelectorAll('.pane.drop').forEach(function (p) { p.classList.remove('drop'); });
+    if (state.screen !== 'input') showScreen('input');
+    loadDropped(e.dataTransfer.files, null);
+  });
+
+  function isTypingTarget(t) {
+    if (!t || !t.tagName) return false;
+    if (t.isContentEditable) return true;
+    var tag = t.tagName;
+    if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
+    if (tag === 'INPUT') return !/^(checkbox|radio|button|submit|reset|file|range|color)$/i.test(t.type);
+    return false;
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      compute();
+      return;
+    }
+    if (document.querySelector('dialog[open]') || $('modal-root').firstChild) return;
+    if (e.key === 'Escape') {
+      if (state.screen === 'result') {
+        e.preventDefault();
+        showScreen('input');
+        updateNav();
+      }
+      return;
+    }
+    if (e.ctrlKey || e.metaKey || e.altKey || isTypingTarget(e.target)) return;
+    if (state.screen !== 'result') return;
+    if (e.key === 'n' || e.key === 'j') { e.preventDefault(); navigate(1); }
+    else if (e.key === 'p' || e.key === 'k') { e.preventDefault(); navigate(-1); }
+  });
+
+  // 초기 상태
+  updatePane('old');
+  updatePane('new');
+  updateViewButtons();
+  updateNav();
+  showScreen('input');
+
+  // 테스트·디버깅용 (UI 동작에는 쓰지 않음)
+  window.DiffApp = { state: state, compute: compute };
+})();
+</script>
+</body>
+</html>
