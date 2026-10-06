@@ -1,3 +1,8 @@
+# claude_proj
+Made by claude
+
+---
+
 # Diff — 단일 HTML 텍스트 비교 도구
 
 `dist/diff.html` 파일 하나만 있으면 됩니다. 브라우저로 열면(`file://`도 됨) 네트워크 없이 완전히 동작하고, 아무것도 전송하거나 저장하지 않습니다.
